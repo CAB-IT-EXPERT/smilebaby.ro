@@ -11,7 +11,7 @@ final class PaymentService
     {
         if (!Database::available()) return [['key' => 'cash_on_delivery', 'name' => 'Plată ramburs', 'description' => 'Plătești curierului la primirea coletului.', 'fee_type' => 'none', 'fee_value' => 0, 'instructions' => '']];
         $this->ensureStripeMethod();
-        $default = (string) setting('default_payment_method', '');
+        $default = (string) setting('default_payment_method', 'online_card');
         $stmt = Database::connection()->prepare('SELECT * FROM payment_methods WHERE enabled=1 AND `key` IN ("cash_on_delivery","online_card") AND (minimum_order IS NULL OR minimum_order<=?) AND (maximum_order IS NULL OR maximum_order>=?) ORDER BY (`key`=?) DESC,sort_order,id');
         $stmt->execute([$subtotal, $subtotal, $default]);
         return $stmt->fetchAll();
@@ -53,7 +53,7 @@ final class PaymentService
         $settings = $row ? (json_decode((string) $row['settings_json'], true) ?: []) : [];
         if (($settings['provider'] ?? '') === 'stripe') return;
         $settings = ['provider' => 'stripe', 'test_mode' => str_starts_with((string) config('payments.stripe.secret_key'), 'sk_test_')];
-        $db->prepare('INSERT INTO payment_methods (`key`,name,description,enabled,sort_order,fee_type,fee_value,instructions,settings_json) VALUES ("online_card","Plată online cu cardul","Card, Apple Pay, Google Pay sau Revolut Pay, procesate securizat prin Stripe.",1,2,"none",0,"",?) ON DUPLICATE KEY UPDATE name=VALUES(name),description=VALUES(description),enabled=1,settings_json=VALUES(settings_json)')
+        $db->prepare('INSERT INTO payment_methods (`key`,name,description,enabled,sort_order,fee_type,fee_value,instructions,settings_json) VALUES ("online_card","Plată online cu cardul","Card, Apple Pay, Google Pay sau Revolut Pay, procesate securizat prin Stripe.",1,1,"none",0,"",?) ON DUPLICATE KEY UPDATE name=VALUES(name),description=VALUES(description),enabled=1,settings_json=VALUES(settings_json)')
             ->execute([json_encode($settings, JSON_UNESCAPED_SLASHES)]);
     }
 }

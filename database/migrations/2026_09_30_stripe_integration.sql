@@ -17,6 +17,12 @@ EXECUTE stripe_product_index_statement;
 DEALLOCATE PREPARE stripe_product_index_statement;
 
 INSERT INTO payment_methods (`key`,name,description,enabled,sort_order,fee_type,fee_value,instructions,settings_json)
-VALUES ('online_card','Plată online cu cardul','Card, Apple Pay, Google Pay sau Revolut Pay, procesate securizat prin Stripe.',1,2,'none',0,'','{"provider":"stripe","test_mode":true}')
+VALUES ('online_card','Plată online cu cardul','Card, Apple Pay, Google Pay sau Revolut Pay, procesate securizat prin Stripe.',1,1,'none',0,'','{"provider":"stripe","test_mode":true}')
 ON DUPLICATE KEY UPDATE
-    name=VALUES(name),description=VALUES(description),enabled=1,settings_json=VALUES(settings_json);
+    name=VALUES(name),description=VALUES(description),enabled=1,sort_order=1,settings_json=VALUES(settings_json);
+
+UPDATE payment_methods SET sort_order=2 WHERE `key`='cash_on_delivery';
+
+INSERT INTO settings (`key`,value,type,group_name)
+VALUES ('default_payment_method','online_card','string','payments')
+ON DUPLICATE KEY UPDATE value=VALUES(value);

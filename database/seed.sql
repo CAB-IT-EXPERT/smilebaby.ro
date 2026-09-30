@@ -10,9 +10,9 @@ email_verified_at = COALESCE(email_verified_at, NOW());
 
 INSERT INTO payment_methods (`key`, name, description, enabled, sort_order, fee_type, fee_value, instructions, settings_json)
 VALUES
-('cash_on_delivery', 'Plată ramburs', 'Plătești curierului la primirea coletului.', 1, 1, 'none', 0, '', '{}'),
-('online_card', 'Plată online cu cardul', 'Card, Apple Pay, Google Pay sau Revolut Pay, procesate securizat prin Stripe.', 1, 2, 'none', 0, '', '{"provider":"stripe","test_mode":true}')
-ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description);
+('online_card', 'Plată online cu cardul', 'Card, Apple Pay, Google Pay sau Revolut Pay, procesate securizat prin Stripe.', 1, 1, 'none', 0, '', '{"provider":"stripe","test_mode":true}'),
+('cash_on_delivery', 'Plată ramburs', 'Plătești curierului la primirea coletului.', 1, 2, 'none', 0, '', '{}')
+ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description), sort_order = VALUES(sort_order);
 
 INSERT INTO settings (`key`, value, type, group_name) VALUES
 ('site_name', 'SmileBaby', 'string', 'general'),
@@ -35,7 +35,7 @@ INSERT INTO settings (`key`, value, type, group_name) VALUES
 ('return_shipping_cost', '20', 'number', 'shipping'),
 ('free_shipping_threshold', '300', 'number', 'shipping'),
 ('estimated_delivery_text', '2–3 zile lucrătoare', 'string', 'shipping'),
-('default_payment_method', 'cash_on_delivery', 'string', 'payments'),
+('default_payment_method', 'online_card', 'string', 'payments'),
 ('seo_title', 'SmileBaby — produse delicate pentru începuturi frumoase', 'string', 'seo'),
 ('seo_description', 'Trusouri de botez, lumânări, mărturii și jucării croșetate, produse handmade de calitate realizate în România.', 'text', 'seo'),
 ('google_site_verification', 'aPxwrBNLU-Gga2vs-aFL2dyYByHeoW3axzyxLRaiN7g', 'string', 'seo'),

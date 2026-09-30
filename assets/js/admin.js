@@ -76,6 +76,13 @@ document.addEventListener('DOMContentLoaded',()=>{
   productLimitDialog?.querySelectorAll('[data-product-limit-close]').forEach(button=>button.addEventListener('click',()=>productLimitDialog.close()));
   productLimitDialog?.addEventListener('click',event=>{if(event.target===productLimitDialog)productLimitDialog.close()});
 
+  const productSuccessDialog=document.querySelector('[data-product-success-dialog]');
+  if(productSuccessDialog){
+    productSuccessDialog.querySelectorAll('[data-product-success-close]').forEach(button=>button.addEventListener('click',()=>productSuccessDialog.close()));
+    productSuccessDialog.addEventListener('click',event=>{if(event.target===productSuccessDialog)productSuccessDialog.close()});
+    requestAnimationFrame(()=>productSuccessDialog.showModal());
+  }
+
   /* One consistent, explicit confirmation before a permanent delete. */
   const deleteModal=document.querySelector('[data-admin-delete-modal]'),deleteForm=deleteModal?.querySelector('[data-admin-delete-form]'),deleteName=deleteModal?.querySelector('[data-admin-delete-name]');
   const openDeleteModal=trigger=>{if(!deleteModal||!deleteForm||trigger.disabled)return;const kind=trigger.dataset.deleteKind||'elementul',name=trigger.dataset.deleteName||'';deleteForm.action=trigger.dataset.deleteAction||'';if(deleteName)deleteName.textContent=(kind+' „'+name+'”').trim();const categoryDialog=document.querySelector('[data-category-editor]');if(categoryDialog?.open)categoryDialog.close();deleteModal.showModal()};

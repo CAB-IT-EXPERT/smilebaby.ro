@@ -72,3 +72,22 @@ $limitReached = $catalogTotal >= $productLimit;
         </footer>
     </div>
 </section>
+<?php if (!empty($productSaved) && is_array($productSaved)): ?>
+    <?php $productWasCreated = ($productSaved['mode'] ?? '') === 'created'; ?>
+    <dialog class="admin-product-success-dialog" data-product-success-dialog aria-labelledby="product-success-title">
+        <button class="admin-product-success-close" type="button" aria-label="Închide" data-product-success-close>×</button>
+        <div class="admin-product-success-visual" aria-hidden="true">
+            <span><img src="<?= asset('images/favicon-owl.png') ?>" alt=""></span>
+            <i><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></i>
+        </div>
+        <span class="admin-product-success-eyebrow"><?= $productWasCreated ? 'PRODUS ADĂUGAT CU SUCCES' : 'MODIFICĂRI SALVATE' ?></span>
+        <h2 id="product-success-title"><?= $productWasCreated ? 'Produsul este pregătit!' : 'Produsul a fost actualizat!' ?></h2>
+        <p><strong><?= e($productSaved['name'] ?? 'Produsul') ?></strong> <?= $productWasCreated ? 'a fost adăugat în catalog.' : 'are acum toate modificările salvate.' ?></p>
+        <div class="admin-product-success-note"><span>✓</span><p><strong>Totul este în regulă</strong><small>Poți continua în catalog sau poți reveni oricând la editare.</small></p></div>
+        <div class="admin-product-success-actions">
+            <button type="button" data-product-success-close>Rămân în catalog</button>
+            <a href="/admin/produse/<?= (int) ($productSaved['id'] ?? 0) ?>/editare">Editează produsul</a>
+            <a class="primary" href="/produs/<?= e($productSaved['slug'] ?? '') ?>" target="_blank" rel="noopener">Vezi pe site <span>↗</span></a>
+        </div>
+    </dialog>
+<?php endif ?>

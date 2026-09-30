@@ -137,6 +137,8 @@ $organizationSchema = [
 <script src="<?= asset('js/cart.js') ?>" defer></script>
 <script src="<?= asset('js/product-customization.js') ?>" defer></script>
 <script src="<?= asset('js/product-addons.js') ?>" defer></script>
+<script src="<?= asset('js/product-price.js') ?>" defer></script>
+<script src="<?= asset('js/product-review.js') ?>" defer></script>
 <script src="<?= asset('js/wishlist.js') ?>" defer></script>
 <script src="<?= asset('js/gallery.js') ?>" defer></script>
 <script src="<?= asset('js/filters.js') ?>" defer></script>

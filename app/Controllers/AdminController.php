@@ -105,7 +105,7 @@ final class AdminController
         $sql = 'SELECT p.*,(SELECT image_path FROM product_images WHERE product_id=p.id ORDER BY is_featured DESC,sort_order LIMIT 1) image_path,GROUP_CONCAT(DISTINCT c.name ORDER BY c.name SEPARATOR ", ") categories,(SELECT COUNT(*) FROM product_variants pv WHERE pv.product_id=p.id AND pv.status="active") variant_count,(SELECT COUNT(*) FROM product_variants pv WHERE pv.product_id=p.id AND pv.status="active" AND pv.stock_quantity IS NOT NULL) variant_limited_count,(SELECT COALESCE(SUM(pv.stock_quantity),0) FROM product_variants pv WHERE pv.product_id=p.id AND pv.status="active" AND pv.stock_quantity IS NOT NULL) variant_stock' . $from . ' GROUP BY p.id ORDER BY ' . ($searchOrder ?: 'p.updated_at DESC') . ' LIMIT ' . $perPage . ' OFFSET ' . $offset;
         $stmt = $db->prepare($sql);
         $stmt->execute($params);
-        View::render('admin/products', ['products' => $stmt->fetchAll(), 'q' => $q, 'status' => $status, 'total' => $total, 'page' => $page, 'pages' => $pages, 'perPage' => $perPage, 'catalogTotal' => $catalogTotal, 'productLimit' => self::PRODUCT_LIMIT, 'productLimitMessage' => self::PRODUCT_LIMIT_MESSAGE], 'layouts/admin');
+        View::render('admin/products', ['products' => $stmt->fetchAll(), 'q' => $q, 'status' => $status, 'total' => $total, 'page' => $page, 'pages' => $pages, 'perPage' => $perPage, 'catalogTotal' => $catalogTotal, 'productLimit' => self::PRODUCT_LIMIT, 'productLimitMessage' => self::PRODUCT_LIMIT_MESSAGE, 'productSaved' => Session::pullFlash('product_saved')], 'layouts/admin');
     }
 
     public function productForm(Request $request): void
@@ -181,7 +181,7 @@ final class AdminController
 
     public function saveProduct(Request $request): void
     {
-        $id = (int) ($request->params['id'] ?? 0); $db = Database::connection(); $oldSlug = null;
+        $id = (int) ($request->params['id'] ?? 0); $isCreate = $id === 0; $db = Database::connection(); $oldSlug = null;
         if (!$id && (int) $db->query('SELECT COUNT(*) FROM products')->fetchColumn() >= self::PRODUCT_LIMIT) {
             Session::flash('error', self::PRODUCT_LIMIT_MESSAGE);
             Response::redirect('/admin/produse');
@@ -286,7 +286,13 @@ final class AdminController
             Session::flash('error', $error->getMessage());
             Response::redirect('/admin/produse/' . $id . '/editare?step=3');
         }
-        Session::flash('success', 'Produsul a fost salvat.'); Response::redirect('/admin/produse/' . $id . '/editare');
+        Session::flash('product_saved', [
+            'mode' => $isCreate ? 'created' : 'updated',
+            'id' => $id,
+            'name' => trim((string) $request->input('name')),
+            'slug' => $slug,
+        ]);
+        Response::redirect('/admin/produse');
     }
 
     public function archiveProduct(Request $request): void { Database::connection()->prepare('UPDATE products SET status="archived" WHERE id=?')->execute([(int) $request->params['id']]); Session::flash('success', 'Produsul a fost arhivat.'); Response::redirect('/admin/produse'); }
@@ -497,7 +503,7 @@ final class AdminController
             'rating_desc' => 'r.rating DESC, r.created_at DESC',
             'rating_asc' => 'r.rating ASC, r.created_at DESC',
             'product' => 'p.name ASC, r.created_at DESC',
-            default => 'FIELD(r.status,"pending","approved","rejected"), r.created_at DESC',
+            default => 'r.created_at DESC, r.id DESC',
         };
         $reviewsStmt = $db->prepare('SELECT r.*,p.name product_name,p.slug product_slug,p.sku product_sku,(SELECT image_path FROM product_images WHERE product_id=p.id ORDER BY is_featured DESC,sort_order,id LIMIT 1) product_image' . $from . ' ORDER BY ' . $orderBy . ' LIMIT ' . $perPage . ' OFFSET ' . $offset);
         $reviewsStmt->execute($params);
@@ -532,7 +538,7 @@ final class AdminController
         $status = (string) $request->input('status');
         if (!in_array($status, ['pending', 'approved', 'rejected'], true)) { Session::flash('error', 'Statusul ales nu este valid.'); Response::redirect($this->reviewReturnTo($request)); }
         $db->prepare('UPDATE reviews SET status=? WHERE id=?')->execute([$status, $id]);
-        $labels = ['pending'=>'în așteptare', 'approved'=>'aprobată', 'rejected'=>'respinsă'];
+        $labels = ['pending'=>'în așteptare', 'approved'=>'publicată', 'rejected'=>'ascunsă'];
         Session::flash('success', 'Recenzia a fost marcată ca ' . $labels[$status] . '.');
         Response::redirect($this->reviewReturnTo($request));
     }

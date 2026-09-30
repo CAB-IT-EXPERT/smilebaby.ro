@@ -71,6 +71,7 @@
         chip.setAttribute('aria-label', `Elimină ${option.dataset.addonName}`);
         return chip;
       }));
+      root.dispatchEvent(new CustomEvent('smilebaby:product-price-change', { bubbles: true }));
     };
 
     trigger.addEventListener('click', () => setOpen(dropdown.hidden));

@@ -78,7 +78,7 @@ $active = static function (string $prefix, bool $exact = false) use ($path): str
         <a href="/admin/produse"<?= $active('/admin/produse') ?>><?= icon('gift') ?><span><strong>Produse</strong><em>Catalog, preț și stoc</em></span></a>
         <a href="/admin/categorii"<?= $active('/admin/categorii') ?>><?= icon('bag') ?><span><strong>Categorii & Colecții</strong><em>Imagini și ordine</em></span></a>
         <a href="/admin/clienti"<?= $active('/admin/clienti') ?>><?= icon('user') ?><span><strong>Clienți</strong><em>Conturi și istoric</em></span></a>
-        <a href="/admin/recenzii"<?= $active('/admin/recenzii') ?>><?= icon('heart') ?><span><strong>Recenzii</strong><em>Moderare</em></span></a>
+        <a href="/admin/recenzii"<?= $active('/admin/recenzii') ?>><?= icon('heart') ?><span><strong>Recenzii</strong><em>Opinii și răspunsuri</em></span></a>
 
         <small>CONȚINUT</small>
         <a href="/admin/articole"<?= $active('/admin/articole') ?>><?= icon('leaf') ?><span><strong>Atelier</strong><em>Articole și povești</em></span></a>

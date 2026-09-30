@@ -10,6 +10,7 @@ function initProductCustomization() {
         input.disabled = !enabled;
         input.required = enabled && input.dataset.personalizationRequired === '1';
       });
+      root.dispatchEvent(new CustomEvent('smilebaby:product-price-change', { bubbles: true }));
     };
     toggle?.addEventListener('change', sync);
     sync();

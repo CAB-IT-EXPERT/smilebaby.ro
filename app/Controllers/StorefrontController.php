@@ -241,9 +241,50 @@ final class StorefrontController
     public function review(Request $request): void
     {
         $rating = (int) $request->input('rating');
-        if ($rating < 1 || $rating > 5 || trim((string) $request->input('body')) === '' || !Validator::email((string) $request->input('email'))) { Session::flash('error', 'Completează corect toate câmpurile recenziei.'); Response::redirect($request->server['HTTP_REFERER'] ?? '/magazin'); }
-        Database::connection()->prepare('INSERT INTO reviews (product_id,user_id,author_name,email,rating,title,body,status) VALUES (?,?,?,?,?,?,?,"pending")')->execute([(int) $request->input('product_id'), Auth::user()['id'] ?? null, trim((string) $request->input('author_name')), mb_strtolower(trim((string) $request->input('email'))), $rating, trim((string) $request->input('title')), trim((string) $request->input('body'))]);
-        Session::flash('success', 'Mulțumim! Recenzia va apărea după moderare.'); Response::redirect($request->server['HTTP_REFERER'] ?? '/magazin');
+        $productId = (int) $request->input('product_id');
+        $authorName = trim((string) $request->input('author_name'));
+        $email = mb_strtolower(trim((string) $request->input('email')));
+        $title = trim((string) $request->input('title'));
+        $body = trim((string) $request->input('body'));
+        if ($productId < 1 || $authorName === '' || $rating < 1 || $rating > 5 || $body === '' || !Validator::email($email)) {
+            $message = 'Completează corect toate câmpurile recenziei.';
+            if ($request->wantsJson()) Response::json(['ok' => false, 'message' => $message], 422);
+            Session::flash('error', $message);
+            Response::redirect($request->server['HTTP_REFERER'] ?? '/magazin');
+        }
+
+        $db = Database::connection();
+        $stmt = $db->prepare('INSERT INTO reviews (product_id,user_id,author_name,email,rating,title,body,status) VALUES (?,?,?,?,?,?,?,"approved")');
+        $stmt->execute([$productId, Auth::user()['id'] ?? null, $authorName, $email, $rating, $title ?: null, $body]);
+        $reviewId = (int) $db->lastInsertId();
+        $summary = $db->prepare('SELECT COUNT(*) review_count,COALESCE(AVG(rating),0) rating FROM reviews WHERE product_id=? AND status="approved"');
+        $summary->execute([$productId]);
+        $summaryRow = $summary->fetch() ?: ['review_count' => 1, 'rating' => $rating];
+        $message = 'Mulțumim pentru recenzia acordată!';
+
+        if ($request->wantsJson()) {
+            Response::json([
+                'ok' => true,
+                'message' => $message,
+                'review' => [
+                    'id' => $reviewId,
+                    'author_name' => $authorName,
+                    'rating' => $rating,
+                    'title' => $title ?: 'Recenzie client',
+                    'body' => $body,
+                    'verified_purchase' => false,
+                    'created_label' => 'acum',
+                ],
+                'summary' => [
+                    'count' => (int) $summaryRow['review_count'],
+                    'rating' => round((float) $summaryRow['rating'], 1),
+                ],
+            ], 201);
+        }
+
+        Session::flash('success', $message . ' Recenzia ta a fost publicată.');
+        $returnTo = strtok((string) ($request->server['HTTP_REFERER'] ?? '/magazin'), '#') ?: '/magazin';
+        Response::redirect($returnTo . '#recenzii');
     }
 
     public function track(Request $request): void { View::render('storefront/track', ['order' => null, 'meta' => ['title' => 'Urmărește comanda — SmileBaby', 'robots' => 'noindex,nofollow']]); }

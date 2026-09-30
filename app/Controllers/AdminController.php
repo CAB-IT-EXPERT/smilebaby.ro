@@ -52,7 +52,7 @@ final class AdminController
             'orders_period' => (int) $metric($db, 'SELECT COUNT(*) FROM orders WHERE created_at>=? AND created_at<?', $periodParams),
             'sales_period' => $metric($db, 'SELECT COALESCE(SUM(total),0) FROM orders WHERE created_at>=? AND created_at<? AND status NOT IN ("cancelled","returned")', $periodParams),
             'active_orders' => (int) $db->query('SELECT COUNT(*) FROM orders WHERE status IN ("received","confirmed","processing","prepared","shipped")')->fetchColumn(),
-            'low_stock' => (int) $db->query('SELECT COUNT(*) FROM products WHERE manage_stock=1 AND stock_quantity<=low_stock_threshold AND status="active"')->fetchColumn(),
+            'low_stock' => (int) $db->query('SELECT COUNT(*) FROM products WHERE manage_stock=1 AND stock_status="in_stock" AND stock_quantity<=low_stock_threshold AND status="active"')->fetchColumn(),
             'new_customers_period' => (int) $metric($db, 'SELECT COUNT(*) FROM users WHERE role="customer" AND created_at>=? AND created_at<?', $periodParams),
         ];
         $orders = $db->query('SELECT * FROM orders ORDER BY created_at DESC LIMIT 8')->fetchAll();

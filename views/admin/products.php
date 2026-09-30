@@ -50,6 +50,7 @@ $limitReached = $catalogTotal >= $productLimit;
                 $managed = (bool) $product['manage_stock'];
                 $stock = $managed ? (int) $product['stock_quantity'] : null;
                 $onlineStock = $managed ? $stock : ((int) $product['variant_count'] > 0 && (int) $product['variant_limited_count'] > 0 ? (int) $product['variant_stock'] : null);
+                $isBackorder = $managed && ($product['stock_status'] ?? '') === 'on_backorder';
                 $stockClass = $onlineStock !== null && $onlineStock <= (int) $product['low_stock_threshold'] ? 'low' : 'ok';
             ?>
                 <tr>
@@ -57,7 +58,7 @@ $limitReached = $catalogTotal >= $productLimit;
                     <td><code><?= e($product['sku'] ?: '—') ?></code></td>
                     <td><span class="catalog-category" title="<?= e($product['categories'] ?: 'Fără categorie') ?>"><?= e($product['categories'] ?: 'Fără categorie') ?></span></td>
                     <td><strong class="catalog-price"><?= money($price) ?></strong><?php if ($product['sale_price']): ?><small class="catalog-old-price"><?= money($product['regular_price']) ?></small><?php endif ?></td>
-                    <td><?php if ($onlineStock === null): ?><span class="stock-pill unlimited">Stoc nelimitat</span><?php else: ?><span class="stock-pill <?= $stockClass ?>"><?= $onlineStock ?> buc.</span><?php endif ?></td>
+                    <td><?php if ($isBackorder): ?><span class="stock-pill unlimited">La comandă</span><?php elseif ($onlineStock === null): ?><span class="stock-pill unlimited">Stoc nelimitat</span><?php else: ?><span class="stock-pill <?= $stockClass ?>"><?= $onlineStock ?> buc.</span><?php endif ?></td>
                     <td><span class="catalog-status <?= e($product['status']) ?>"><?= e($statusLabels[$product['status']] ?? $product['status']) ?></span></td>
                     <td><div class="catalog-actions"><a href="/admin/produse/<?= (int) $product['id'] ?>/editare" aria-label="Editează <?= e($product['name']) ?>" data-tooltip="Editează produsul"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.2-1 10.9-10.9a2 2 0 0 0-2.8-2.8L5.4 16.2 4 20Z"/><path d="m14.8 6.8 2.8 2.8"/></svg></a><button type="button" class="catalog-delete-button" aria-label="Șterge <?= e($product['name']) ?>" data-tooltip="Șterge produsul" data-admin-delete data-delete-kind="produsul" data-delete-name="<?= e($product['name']) ?>" data-delete-action="/admin/produse/<?= (int) $product['id'] ?>/stergere"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 4h6l1 3H8l1-3Z"/><path d="m6 7 1 13h10l1-13M10 11v5M14 11v5"/></svg></button></div></td>
                 </tr>

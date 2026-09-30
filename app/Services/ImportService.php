@@ -22,7 +22,14 @@ final class ImportService
                 $sql = 'INSERT INTO products (legacy_wp_id,name,slug,sku,gtin,short_description,description,regular_price,sale_price,sale_start,sale_end,manage_stock,stock_quantity,low_stock_threshold,stock_status,allow_backorders,featured,is_customizable,badge_text,brand,weight,length,width,height,status,meta_title,meta_description) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE name=VALUES(name),sku=VALUES(sku),gtin=VALUES(gtin),short_description=VALUES(short_description),description=VALUES(description),regular_price=VALUES(regular_price),sale_price=VALUES(sale_price),manage_stock=VALUES(manage_stock),stock_quantity=VALUES(stock_quantity),stock_status=VALUES(stock_status),allow_backorders=VALUES(allow_backorders),featured=VALUES(featured),is_customizable=VALUES(is_customizable),status=VALUES(status),updated_at=NOW(),id=LAST_INSERT_ID(id)';
                 $inv = $row['inventory'] ?? []; $dim = $row['dimensions'] ?? []; $pricing = $row['pricing'] ?? [];
                 $manageStock = ($inv['stock_quantity'] ?? null) !== null ? 1 : 0;
-                $stockStatus = $manageStock ? (($inv['in_stock'] ?? true) ? 'in_stock' : 'out_of_stock') : 'in_stock';
+                $importedStockStatus = $inv['in_stock'] ?? true;
+                $isBackorder = $manageStock && (
+                    $importedStockStatus === 'backorder'
+                    || ((int) ($inv['stock_quantity'] ?? 0) <= 0 && !empty($inv['backorders_allowed']))
+                );
+                $stockStatus = $manageStock
+                    ? ($isBackorder ? 'on_backorder' : ($importedStockStatus ? 'in_stock' : 'out_of_stock'))
+                    : 'in_stock';
                 $customizable = str_contains(slugify((string) $row['name'] . ' ' . strip_tags((string) ($row['descriptions']['short_html'] ?? ''))), 'personaliz') ? 1 : 0;
                 $stmt = $db->prepare($sql);
                 $stmt->execute([(int) $row['id'], $row['name'], $slug, $row['sku'] ?: null, $row['gtin_upc_ean_isbn'] ?: null, $row['descriptions']['short_html'] ?? null, $row['descriptions']['full_html'] ?? null, (float) ($pricing['regular_price'] ?? 0), $pricing['sale_price'] ?: null, $row['promotion']['start'] ?: null, $row['promotion']['end'] ?: null, $manageStock, $manageStock ? ($inv['stock_quantity'] ?? null) : null, $inv['low_stock_threshold'] ?? 3, $stockStatus, $manageStock ? (int) ($inv['backorders_allowed'] ?? false) : 0, (int) ($row['featured'] ?? false), $customizable, null, implode(', ', $row['brands'] ?? []), $dim['weight_kg'] ?? null, $dim['length_cm'] ?? null, $dim['width_cm'] ?? null, $dim['height_cm'] ?? null, ($row['published'] ?? false) ? 'active' : 'draft', null, null]);

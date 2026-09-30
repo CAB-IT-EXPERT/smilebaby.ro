@@ -1,6 +1,7 @@
 <?php
 $images=$product['images'] ?: [['image_path'=>$product['image_path']??null,'alt_text'=>$product['name']]];
 $inStock=empty($product['manage_stock'])||($product['stock_status']??'in_stock')!=='out_of_stock';
+$isBackorder=!empty($product['manage_stock'])&&($product['stock_status']??'')==='on_backorder';
 if(!empty($product['variants']))$inStock=(bool)array_filter($product['variants'],fn($v)=>$v['stock_quantity']===null||$v['stock_status']!=='out_of_stock');
 $baseRegularPrice=(float)$product['regular_price'];
 $baseCurrentPrice=(float)($product['sale_price']?:$product['regular_price']);
@@ -103,7 +104,7 @@ $customizationPrice=max(0,(float)($product['customization_price']??0));
                 <dialog class="storefront-addon-image-dialog" data-storefront-addon-image-dialog><button type="button" data-storefront-addon-image-close aria-label="Închide">×</button><img src="" alt="" data-storefront-addon-image-large><div><strong data-storefront-addon-image-title></strong><small>Previzualizare produs suplimentar</small></div></dialog>
             </section>
         <?php endif ?>
-        <div class="stock <?= $inStock?'in-stock':'out-stock' ?>"><?= $inStock?'În stoc':'INDISPONIBIL' ?><?php if($inStock && $product['manage_stock'] && $product['stock_quantity']<=($product['low_stock_threshold']??3)):?> · Doar <?= (int)$product['stock_quantity'] ?> rămase<?php endif?></div>
+        <div class="stock <?= $inStock?'in-stock':'out-stock' ?>"><?= $isBackorder?'Disponibil la comandă':($inStock?'În stoc':'INDISPONIBIL') ?><?php if($inStock && !$isBackorder && $product['manage_stock'] && $product['stock_quantity']<=($product['low_stock_threshold']??3)):?> · Doar <?= (int)$product['stock_quantity'] ?> rămase<?php endif?></div>
         <div class="product-actions"><form id="add-to-cart" action="/cos/adauga" method="post" data-cart-form><?=csrf_field()?><input type="hidden" name="product_id" value="<?=$product['id']?>"><div class="quantity"><button type="button" data-qty-minus><?=icon('minus')?></button><input type="number" name="quantity" value="1" min="1" max="99" aria-label="Cantitate"><button type="button" data-qty-plus><?=icon('plus')?></button></div><button class="button add-button" type="submit" <?=!$inStock?'disabled':''?>><?= $inStock?'ADAUGĂ ÎN COȘ':'INDISPONIBIL' ?></button></form><form action="/favorite" method="post" data-wishlist-form><?=csrf_field()?><input type="hidden" name="product_id" value="<?=$product['id']?>"><button class="wishlist-large" type="submit" aria-label="Adaugă la favorite"><?=icon('heart')?></button></form></div>
         <div class="product-benefits"><span><?=icon('truck')?>Livrare în <?=e(setting('estimated_delivery_text','2–3 zile'))?></span><span><?=icon('return')?>Retur în 14 zile</span><span><?=icon('card')?>Plată securizată</span></div>
     </div>
@@ -111,7 +112,7 @@ $customizationPrice=max(0,(float)($product['customization_price']??0));
 <section class="product-details shell">
     <div class="tabs" role="tablist"><button class="active" data-tab="descriere">Descriere</button><button data-tab="specificatii">Specificații</button><button data-tab="recenzii">Recenzii</button></div>
     <div class="tab-panel active" id="descriere"><?= $product['description'] ? sanitize_rich_html((string) $product['description']) : '<p>Detaliile produsului vor fi completate în curând.</p>' ?></div>
-    <div class="tab-panel" id="specificatii"><dl><dt>Cod produs</dt><dd><?=e($product['sku']?:'—')?></dd><dt>Brand</dt><dd><?=e($product['brand']?:'SmileBaby')?></dd><dt>Disponibilitate</dt><dd><?=$inStock?'În stoc':'Indisponibil'?></dd></dl></div>
+    <div class="tab-panel" id="specificatii"><dl><dt>Cod produs</dt><dd><?=e($product['sku']?:'—')?></dd><dt>Brand</dt><dd><?=e($product['brand']?:'SmileBaby')?></dd><dt>Disponibilitate</dt><dd><?=$isBackorder?'Disponibil la comandă':($inStock?'În stoc':'Indisponibil')?></dd></dl></div>
     <div class="tab-panel" id="recenzii">
         <header class="product-reviews-heading">
             <div class="product-reviews-heading-copy">

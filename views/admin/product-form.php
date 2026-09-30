@@ -47,7 +47,29 @@ foreach ($productAddons as $addon) $configuredAddons[(int) $addon['addon_product
                             <label>Brand<input name="brand" value="<?= e($p['brand'] ?? 'SmileBaby') ?>"><small>Numele mărcii afișate în datele produsului.</small></label>
                         </div>
                         <label>Descriere scurtă<textarea name="short_description" rows="3" maxlength="500" data-product-count="short"><?= e(strip_tags($p['short_description'] ?? '')) ?></textarea><small>Rezumatul din listări. Recomandat: 120–160 caractere. <b data-product-count-output="short">0 / 500</b></small></label>
-                        <label>Descriere completă<textarea name="description" rows="7" data-product-count="long"><?= e($p['description'] ?? '') ?></textarea><small>Detalii despre conținut, materiale, personalizare, dimensiuni și întreținere. <b data-product-count-output="long">0 caractere</b></small></label>
+                        <div class="product-rich-field" data-rich-editor>
+                            <div class="product-rich-label"><span>Descriere completă</span><small>Formatează vizual textul, fără să introduci cod HTML.</small></div>
+                            <div class="product-rich-editor">
+                                <div class="product-rich-toolbar" role="toolbar" aria-label="Formatarea descrierii">
+                                    <button type="button" data-rich-command="undo" title="Anulează ultima modificare" aria-label="Anulează">↶</button>
+                                    <button type="button" data-rich-command="redo" title="Refă modificarea" aria-label="Refă">↷</button>
+                                    <span aria-hidden="true"></span>
+                                    <button type="button" data-rich-command="bold" title="Text îngroșat"><b>B</b></button>
+                                    <button type="button" data-rich-command="italic" title="Text cursiv"><i>I</i></button>
+                                    <button type="button" data-rich-command="underline" title="Text subliniat"><u>U</u></button>
+                                    <label>Stil<span class="sr-only">Stil paragraf</span><select data-rich-format aria-label="Stil paragraf"><option value="p">Text normal</option><option value="h2">Titlu mare</option><option value="h3">Subtitlu</option><option value="blockquote">Citat / notă</option></select></label>
+                                    <span aria-hidden="true"></span>
+                                    <button type="button" data-rich-command="insertUnorderedList" title="Listă cu puncte" aria-label="Listă cu puncte">• Listă</button>
+                                    <button type="button" data-rich-command="insertOrderedList" title="Listă numerotată" aria-label="Listă numerotată">1. Listă</button>
+                                    <button type="button" data-rich-command="createLink" title="Adaugă link" aria-label="Adaugă link">🔗</button>
+                                    <button type="button" data-rich-command="unlink" title="Elimină linkul" aria-label="Elimină linkul">⛓</button>
+                                    <button type="button" data-rich-command="removeFormat" title="Șterge formatarea" aria-label="Șterge formatarea">Tx</button>
+                                </div>
+                                <div class="product-rich-canvas" contenteditable="true" role="textbox" aria-multiline="true" data-rich-canvas data-placeholder="Scrie aici descrierea completă a produsului…"><?= sanitize_rich_html((string) ($p['description'] ?? '')) ?></div>
+                                <textarea name="description" data-rich-textarea hidden><?= e(sanitize_rich_html((string) ($p['description'] ?? ''))) ?></textarea>
+                                <footer><span>Textul este salvat exact așa cum îl vezi.</span><b data-product-count-output="long">0 caractere</b></footer>
+                            </div>
+                        </div>
                     </div>
                 </section>
 

@@ -29,6 +29,7 @@ $router->post('/recenzie', [StorefrontController::class, 'review'], ['csrf']);
 $router->get('/urmareste-comanda', [StorefrontController::class, 'track']);
 $router->post('/urmareste-comanda', [StorefrontController::class, 'trackSearch'], ['csrf']);
 $router->get('/urmareste-comanda/status', [StorefrontController::class, 'trackResult']);
+$router->get('/urmareste-comanda/acces/{token}', [StorefrontController::class, 'trackSigned']);
 $router->get('/blog', [StorefrontController::class, 'blog']);
 $router->get('/blog/{slug}', [StorefrontController::class, 'post']);
 $router->get('/contact', [StorefrontController::class, 'contact']);

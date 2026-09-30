@@ -1,0 +1,12 @@
+.personalized-order-policy{display:grid;grid-template-columns:36px minmax(0,1fr);gap:.7rem;margin-top:.75rem;padding:.78rem;border:1px solid #dfc4ae;border-radius:15px;background:linear-gradient(135deg,#fff9f4,#f5e6da);color:#684a38}
+.personalized-order-policy>span{display:grid;width:36px;height:36px;place-items:center;border-radius:11px;background:#fff;color:#a06a48;font-size:.95rem;box-shadow:0 5px 14px rgba(95,60,38,.08)}
+.personalized-order-policy p{display:grid;gap:.18rem;margin:0}
+.personalized-order-policy strong{font-size:.64rem}
+.personalized-order-policy small{color:#806d61;font-size:.54rem;line-height:1.5}
+.personalized-order-policy a{width:max-content;color:#80543b;font-size:.53rem;font-weight:800;text-decoration:underline;text-underline-offset:2px}
+
+.storefront-customization-policy{grid-column:1/-1;display:grid;grid-template-columns:32px minmax(0,1fr);align-items:start;gap:.65rem;padding:.7rem .75rem;border:1px solid #e3ccb9;border-radius:13px;background:#fff8f2;color:#684a38}
+.storefront-customization-policy>span{display:grid;width:32px;height:32px;place-items:center;border-radius:10px;background:#f0dfd1;color:#925f40;font:700 .72rem var(--serif)}
+.storefront-customization-policy p{display:block;margin:0;color:#7b675a;font-size:.55rem;line-height:1.55}
+.storefront-customization-policy strong{display:block;margin-bottom:.08rem;color:#5b4030;font-size:.59rem}
+.storefront-customization-policy a{color:#87593e;font-weight:800;text-decoration:underline;text-underline-offset:2px}

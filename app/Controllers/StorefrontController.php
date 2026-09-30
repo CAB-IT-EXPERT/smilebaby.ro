@@ -13,8 +13,10 @@ use App\Models\CategoryRepository;
 use App\Models\ProductRepository;
 use App\Services\CartService;
 use App\Services\OrderService;
+use App\Services\OrderTrackingService;
 use App\Services\PaymentService;
 use App\Services\SearchService;
+use App\Services\StripeCheckoutService;
 
 final class StorefrontController
 {
@@ -83,7 +85,15 @@ final class StorefrontController
         if ($request->wantsJson()) Response::json(['ok' => true, 'count' => (new CartService())->count()]);
         Response::redirect('/cos');
     }
-    public function updateCart(Request $request): void { (new CartService())->update((string) $request->input('key'), (int) $request->input('quantity')); Response::redirect('/cos'); }
+    public function updateCart(Request $request): void
+    {
+        try {
+            (new CartService())->update((string) $request->input('key'), (int) $request->input('quantity'));
+        } catch (\RuntimeException $error) {
+            Session::flash('error', $error->getMessage());
+        }
+        Response::redirect('/cos');
+    }
     public function updateCartCustomization(Request $request): void
     {
         try {
@@ -114,11 +124,17 @@ final class StorefrontController
     {
         $cart = new CartService(); $items = $cart->items();
         if (!$items) { Session::flash('error', 'Coșul tău este gol.'); Response::redirect('/cos'); }
+        $addresses = [];
+        if (Auth::check()) {
+            $addressStmt = Database::connection()->prepare('SELECT * FROM user_addresses WHERE user_id=? ORDER BY is_default DESC,id DESC');
+            $addressStmt->execute([(int) Auth::user()['id']]);
+            $addresses = $addressStmt->fetchAll();
+        }
         $subtotal = $cart->subtotal();
         $shippingEnabled = filter_var(setting('shipping_enabled', '1'), FILTER_VALIDATE_BOOL);
         $threshold = (float) setting('free_shipping_threshold', 300);
         $shipping = !$shippingEnabled || ($threshold > 0 && $subtotal >= $threshold) ? 0 : (float) setting('standard_shipping_cost', 20);
-        View::render('storefront/checkout', ['items' => $items, 'subtotal' => $subtotal, 'shipping' => $shipping, 'paymentMethods' => (new PaymentService())->active($subtotal), 'meta' => ['title' => 'Finalizare comandă — SmileBaby', 'robots' => 'noindex,nofollow']]);
+        View::render('storefront/checkout', ['items' => $items, 'addresses' => $addresses, 'subtotal' => $subtotal, 'shipping' => $shipping, 'paymentMethods' => (new PaymentService())->active($subtotal), 'meta' => ['title' => 'Finalizare comandă — SmileBaby', 'robots' => 'noindex,nofollow']]);
     }
 
     public function placeOrder(Request $request): void
@@ -149,7 +165,9 @@ final class StorefrontController
         if (Database::available()) { $stmt = Database::connection()->prepare('SELECT * FROM orders WHERE order_number=? LIMIT 1'); $stmt->execute([$number]); $order = $stmt->fetch(); }
         $last = Session::get('last_order');
         if (!$order || (!$last && !Auth::isAdmin()) || ($last && $last['email'] !== $order['email'] && !Auth::isAdmin())) { http_response_code(404); View::render('errors/404'); return; }
-        View::render('storefront/confirmation', ['order' => $order, 'meta' => ['title' => 'Comandă confirmată — SmileBaby', 'robots' => 'noindex,nofollow']]);
+        $itemsStmt = Database::connection()->prepare('SELECT * FROM order_items WHERE order_id=? ORDER BY id');
+        $itemsStmt->execute([(int) $order['id']]);
+        View::render('storefront/confirmation', ['order' => $order, 'items' => $itemsStmt->fetchAll(), 'displayState' => 'received', 'meta' => ['title' => 'Am primit comanda ta — SmileBaby', 'robots' => 'noindex,nofollow']]);
     }
 
     public function paymentResult(Request $request): void
@@ -160,7 +178,23 @@ final class StorefrontController
         $order = $stmt->fetch();
         $last = Session::get('last_order');
         if (!$order || (!$last && !Auth::isAdmin()) || ($last && $last['email'] !== $order['email'] && !Auth::isAdmin())) { http_response_code(404); View::render('errors/404'); return; }
-        View::render('storefront/payment-result', ['order' => $order, 'meta' => ['title' => 'Status plată — SmileBaby', 'robots' => 'noindex,nofollow']]);
+        $paymentError = null;
+        $sessionId = trim((string) ($request->query['session_id'] ?? ''));
+        if ($sessionId !== '') {
+            try {
+                (new StripeCheckoutService())->verifyReturn($sessionId, $number);
+            } catch (\Throwable $error) {
+                $paymentError = $error->getMessage();
+            }
+            $stmt->execute([$number]);
+            $order = $stmt->fetch();
+        }
+        $displayState = ($order['status'] ?? '') === 'cancelled'
+            ? 'order_cancelled'
+            : (!empty($request->query['cancelled']) ? 'cancelled' : (($order['payment_status'] ?? '') === 'paid' ? 'paid' : (($order['payment_status'] ?? '') === 'failed' || $paymentError ? 'failed' : 'pending')));
+        $itemsStmt = Database::connection()->prepare('SELECT * FROM order_items WHERE order_id=? ORDER BY id');
+        $itemsStmt->execute([(int) $order['id']]);
+        View::render('storefront/payment-result', ['order' => $order, 'items' => $itemsStmt->fetchAll(), 'displayState' => $displayState, 'paymentError' => $paymentError, 'meta' => ['title' => 'Status plată — SmileBaby', 'robots' => 'noindex,nofollow']]);
     }
 
     public function retryPayment(Request $request): void
@@ -325,6 +359,26 @@ final class StorefrontController
             Response::redirect('/urmareste-comanda');
         }
 
+        $this->renderTrackedOrder($order);
+    }
+
+    public function trackSigned(Request $request): void
+    {
+        $identity = (new OrderTrackingService())->verify((string) ($request->params['token'] ?? ''));
+        if (!$identity) { http_response_code(404); View::render('errors/404'); return; }
+
+        $stmt = Database::connection()->prepare('SELECT * FROM orders WHERE id=? AND order_number=? LIMIT 1');
+        $stmt->execute([$identity['id'], $identity['number']]);
+        $order = $stmt->fetch();
+        if (!$order) { http_response_code(404); View::render('errors/404'); return; }
+
+        $this->renderTrackedOrder($order);
+    }
+
+    private function renderTrackedOrder(array $order): void
+    {
+        $orderId = (int) $order['id'];
+        $db = Database::connection();
         $itemsStmt = $db->prepare('SELECT * FROM order_items WHERE order_id=? ORDER BY id');
         $itemsStmt->execute([$orderId]);
         $historyStmt = $db->prepare('SELECT new_status,status_history.message,status_history.created_at FROM order_status_history status_history WHERE order_id=? ORDER BY created_at,id');
@@ -364,10 +418,10 @@ final class StorefrontController
     {
         $page = (string) ($request->params['page'] ?? trim((string) parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH), '/'));
         $meta = match ($page) {
-            'termeni-si-conditii' => ['title' => 'Termeni și condiții — SmileBaby', 'description' => 'Condițiile de utilizare și comandă în magazinul online SmileBaby.'],
+            'termeni-si-conditii' => ['title' => 'Termeni și condiții — SmileBaby', 'description' => 'Condițiile de comandă SmileBaby, inclusiv avansul și returul produselor personalizate.'],
             'confidentialitate' => ['title' => 'Politica de confidențialitate — SmileBaby', 'description' => 'Cum colectează, folosește și protejează SmileBaby datele tale personale.'],
             'cookies' => ['title' => 'Politica de cookies — SmileBaby', 'description' => 'Informații despre cookie-urile, stocarea locală și preferințele folosite de SmileBaby.'],
-            'livrare-si-retur' => ['title' => 'Livrare și retur — SmileBaby', 'description' => 'Termene, costuri de livrare și condițiile de retur pentru comenzile SmileBaby.'],
+            'livrare-si-retur' => ['title' => 'Livrare și retur — SmileBaby', 'description' => 'Livrarea, avansul și condițiile de retur, inclusiv regulile pentru produsele personalizate.'],
             default => ['title' => 'Informații — SmileBaby', 'description' => 'Informații utile SmileBaby.'],
         };
         View::render('storefront/page', ['page' => $page, 'meta' => $meta]);
@@ -395,21 +449,14 @@ final class StorefrontController
     public function paymentCallback(Request $request): void
     {
         if (!Database::available()) Response::json(['ok' => false], 503);
-        $stmt = Database::connection()->prepare('SELECT * FROM payment_methods WHERE `key`="online_card" LIMIT 1'); $stmt->execute(); $method = $stmt->fetch();
         try {
-            if (!$method) throw new \RuntimeException('Metodă de plată inexistentă.');
-            $settings = json_decode($method['settings_json'] ?: '{}', true) ?: [];
-            $provider = trim((string) ($settings['provider'] ?? 'other'));
-            if ($provider !== (string) $request->params['provider']) throw new \RuntimeException('Provider invalid.');
-            $result = (new PaymentService())->gateway('online_card')->handleCallback($request->body, $method);
-            $eventId = (string) $result['event_id']; $orderNumber = (string) $request->input('order_id');
-            Database::transaction(function ($db) use ($eventId, $orderNumber, $result, $request, $provider) {
-                $stmt = $db->prepare('SELECT id FROM orders WHERE order_number=? FOR UPDATE'); $stmt->execute([$orderNumber]); $orderId = (int) $stmt->fetchColumn(); if (!$orderId) throw new \RuntimeException('Comandă invalidă.');
-                $insert = $db->prepare('INSERT IGNORE INTO payment_events (provider,event_id,order_id,event_type,payload_safe,processed_at) VALUES (?,?,?,?,?,NOW())'); $insert->execute([$provider, $eventId, $orderId, $result['status'], json_encode(array_diff_key($request->body, array_flip(['signature','signed_payload'])), JSON_UNESCAPED_UNICODE)]); if ($insert->rowCount() === 0) return;
-                $db->prepare('UPDATE payments SET status=?,provider_transaction_id=? WHERE order_id=?')->execute([$result['status'], $result['transaction_id'] ?? null, $orderId]);
-                $map = ['paid' => 'paid', 'failed' => 'failed', 'cancelled' => 'failed']; $db->prepare('UPDATE orders SET payment_status=? WHERE id=?')->execute([$map[$result['status']] ?? 'pending', $orderId]);
-            });
-            Response::json(['ok' => true]);
-        } catch (\Throwable $e) { Response::json(['ok' => false, 'message' => 'Callback respins.'], 400); }
+            if ((string) ($request->params['provider'] ?? '') !== 'stripe') throw new \RuntimeException('Provider invalid.');
+            $signature = (string) ($request->server['HTTP_STRIPE_SIGNATURE'] ?? '');
+            $result = (new StripeCheckoutService())->handleWebhook($request->rawBody, $signature);
+            Response::json(['ok' => true, 'duplicate' => $result['duplicate'] ?? false]);
+        } catch (\Throwable $e) {
+            error_log('Stripe webhook rejected: ' . $e->getMessage());
+            Response::json(['ok' => false, 'message' => 'Callback respins.'], 400);
+        }
     }
 }

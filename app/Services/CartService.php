@@ -14,13 +14,16 @@ final class CartService
         $product = (new ProductRepository())->find($productId);
         if (!$product || ($product['status'] ?? '') !== 'active') throw new RuntimeException('Produsul nu mai este disponibil.');
         $customization = $personalized ? $this->makeCustomization($product, $values) : null;
-        $addons = (new ProductAddonService())->validateSelections($productId, $addonValues);
+        $addonService = new ProductAddonService();
+        $addons = $addonService->validateSelections($productId, $addonValues);
         $cart = Session::get('cart', []);
         $key = $this->key($productId, $variantId, $customization, $addons);
+        $lineQuantity = min(99, max(1, (int) ($cart[$key]['quantity'] ?? 0) + $quantity));
+        if ($addons) $addons = $addonService->validateSelections($productId, $addonValues, null, false, $lineQuantity);
         $cart[$key] = [
             'product_id' => $productId,
             'variant_id' => $variantId,
-            'quantity' => min(99, max(1, (int) ($cart[$key]['quantity'] ?? 0) + $quantity)),
+            'quantity' => $lineQuantity,
             'customization' => $customization,
             'addons' => $addons,
         ];
@@ -31,7 +34,20 @@ final class CartService
     {
         $cart = Session::get('cart', []);
         if ($quantity < 1) unset($cart[$key]);
-        elseif (isset($cart[$key])) $cart[$key]['quantity'] = min(99, $quantity);
+        elseif (isset($cart[$key])) {
+            $quantity = min(99, $quantity);
+            $line = $cart[$key];
+            if (!empty($line['addons'])) {
+                (new ProductAddonService())->validateSelections(
+                    (int) $line['product_id'],
+                    (new ProductAddonService())->rawSelections((array) $line['addons']),
+                    null,
+                    false,
+                    $quantity
+                );
+            }
+            $cart[$key]['quantity'] = $quantity;
+        }
         Session::put('cart', $cart);
     }
 
@@ -57,7 +73,7 @@ final class CartService
         $count = 0;
         foreach (Session::get('cart', []) as $line) {
             $count += (int) ($line['quantity'] ?? 0);
-            foreach ((array) ($line['addons'] ?? []) as $addon) $count += (int) ($addon['quantity'] ?? 0);
+            foreach ((array) ($line['addons'] ?? []) as $addon) $count += (int) ($addon['quantity'] ?? 0) * (int) ($line['quantity'] ?? 1);
         }
         return $count;
     }
@@ -81,7 +97,7 @@ final class CartService
                 // validation message instead of losing the personalization.
                 $customization = $this->makeCustomization($product, $this->rawValues((array) ($line['customization']['values'] ?? [])));
             }
-            $addons = $addonService->validateSelections($productId, $addonService->rawSelections((array) ($line['addons'] ?? [])));
+            $addons = $addonService->validateSelections($productId, $addonService->rawSelections((array) ($line['addons'] ?? [])), null, false, $quantity);
             $key = $this->key($productId, $variantId, $customization, $addons);
             if (isset($cart[$key])) $cart[$key]['quantity'] = min(99, (int) $cart[$key]['quantity'] + $quantity);
             else $cart[$key] = ['product_id' => $productId, 'variant_id' => $variantId, 'quantity' => $quantity, 'customization' => $customization, 'addons' => $addons];
@@ -130,14 +146,24 @@ final class CartService
             $customizationPrice = $customization ? max(0, (float) ($product['customization_price'] ?? 0)) : 0.0;
             $price = round($basePrice + $customizationPrice, 2);
             $addons = [];
+            $lineQuantity = max(1, (int) ($line['quantity'] ?? 1));
             try {
-                $addons = $addonService->validateSelections((int) $product['id'], $addonService->rawSelections((array) ($line['addons'] ?? [])));
+                $addons = $addonService->validateSelections((int) $product['id'], $addonService->rawSelections((array) ($line['addons'] ?? [])), null, false, $lineQuantity);
             } catch (RuntimeException) {
                 $cart[$key]['addons'] = [];
                 $changed = true;
             }
-            $addonsTotal = round(array_sum(array_column($addons, 'total')), 2);
-            $items[] = compact('key', 'product', 'variant', 'basePrice', 'customizationPrice', 'price', 'customization', 'fields', 'addons', 'addonsTotal') + ['quantity' => (int) $line['quantity'], 'variant_id' => $line['variant_id'], 'total' => round($price * (int) $line['quantity'] + $addonsTotal, 2)];
+            $addonsUnitTotal = round(array_sum(array_column($addons, 'total')), 2);
+            foreach ($addons as &$addon) {
+                $addon['quantity_per_set'] = (int) $addon['quantity'];
+                $addon['parent_quantity'] = $lineQuantity;
+                $addon['line_quantity'] = (int) $addon['quantity'] * $lineQuantity;
+                $addon['unit_total'] = (float) $addon['total'];
+                $addon['line_total'] = round((float) $addon['total'] * $lineQuantity, 2);
+            }
+            unset($addon);
+            $addonsTotal = round($addonsUnitTotal * $lineQuantity, 2);
+            $items[] = compact('key', 'product', 'variant', 'basePrice', 'customizationPrice', 'price', 'customization', 'fields', 'addons', 'addonsUnitTotal', 'addonsTotal') + ['quantity' => $lineQuantity, 'variant_id' => $line['variant_id'], 'total' => round(($price + $addonsUnitTotal) * $lineQuantity, 2)];
         }
         if ($changed) Session::put('cart', $cart);
         return $items;

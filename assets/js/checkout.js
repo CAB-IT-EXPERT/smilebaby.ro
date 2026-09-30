@@ -19,6 +19,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const form = document.querySelector('[data-checkout]');
   if (!form) return;
+
+  const addressBook = form.querySelector('[data-checkout-addresses]');
+  if (addressBook) {
+    const fields = ['first_name', 'last_name', 'phone', 'county', 'city', 'address', 'postcode'];
+    const updateAddress = input => {
+      if (!input) return;
+      const isNewAddress = input.value === 'new';
+      fields.forEach(name => {
+        const field = form.elements.namedItem(name);
+        if (!(field instanceof HTMLInputElement)) return;
+        const dataName = name.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+        const value = isNewAddress
+          ? (['first_name', 'last_name', 'phone'].includes(name) ? field.dataset.accountValue || '' : '')
+          : input.dataset[dataName] || (['first_name', 'last_name', 'phone'].includes(name) ? field.dataset.accountValue || '' : '');
+        field.value = value;
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    };
+
+    addressBook.querySelectorAll('input[name="address_choice"]').forEach(input => {
+      input.addEventListener('change', () => updateAddress(input));
+    });
+  }
+
   const totalLabel = form.querySelector('[data-order-total]');
   const subtotalLabel = form.querySelector('[data-subtotal]');
   const feeRow = form.querySelector('[data-payment-fee-row]');

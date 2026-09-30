@@ -128,6 +128,47 @@ document.addEventListener('DOMContentLoaded', () => {
     const update = () => output.textContent = field.maxLength > 0 ? `${field.value.length} / ${field.maxLength}` : `${field.value.length} caractere`;
     field.addEventListener('input', update); update();
   });
+  let syncRichEditor = () => {};
+  const richEditor = dialog.querySelector('[data-rich-editor]');
+  if (richEditor) {
+    const canvas = richEditor.querySelector('[data-rich-canvas]');
+    const textarea = richEditor.querySelector('[data-rich-textarea]');
+    const countOutput = dialog.querySelector('[data-product-count-output="long"]');
+    const format = richEditor.querySelector('[data-rich-format]');
+    syncRichEditor = () => {
+      const text = canvas.innerText.replace(/\u00a0/g, ' ').trim();
+      textarea.value = text ? canvas.innerHTML.trim() : '';
+      countOutput.textContent = `${text.length} caractere`;
+    };
+    const applyCommand = (command, value = null) => {
+      canvas.focus();
+      if (command === 'createLink') {
+        const href = window.prompt('Introdu adresa linkului (ex.: https://smilebaby.ro):', 'https://');
+        if (!href || href === 'https://') return;
+        document.execCommand(command, false, href);
+      } else {
+        document.execCommand(command, false, value);
+      }
+      syncRichEditor();
+    };
+    richEditor.querySelectorAll('[data-rich-command]').forEach(button => {
+      button.addEventListener('mousedown', event => event.preventDefault());
+      button.addEventListener('click', () => applyCommand(button.dataset.richCommand));
+    });
+    format.addEventListener('change', () => {
+      applyCommand('formatBlock', format.value);
+      format.value = 'p';
+    });
+    canvas.addEventListener('input', syncRichEditor);
+    canvas.addEventListener('blur', syncRichEditor);
+    canvas.addEventListener('paste', event => {
+      event.preventDefault();
+      const text = event.clipboardData?.getData('text/plain') || '';
+      document.execCommand('insertText', false, text);
+      syncRichEditor();
+    });
+    syncRichEditor();
+  }
   const stockToggle = dialog.querySelector('[data-product-manage-stock]');
   const stockFields = dialog.querySelector('[data-product-stock-fields]');
   const syncStock = () => {
@@ -484,6 +525,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   form.addEventListener('submit', event => {
+    syncRichEditor();
     if (event.submitter?.hasAttribute('data-product-archive')) {
       if (!window.confirm('Sigur vrei să arhivezi produsul? Îl poți reactiva ulterior.')) event.preventDefault();
       return;

@@ -57,16 +57,26 @@ final class OrderService
                     $line['customizationPrice'] = max(0, (float) $fresh['customization_price']);
                     $line['price'] += $line['customizationPrice'];
                 }
-                $line['addons'] = $addonService->validateSelections((int) $fresh['id'], $addonService->rawSelections((array) ($line['addons'] ?? [])), $db, true);
-                $line['addonsTotal'] = round(array_sum(array_column($line['addons'], 'total')), 2);
-                $line['total'] = round($line['price'] * $line['quantity'] + $line['addonsTotal'], 2);
+                $line['addons'] = $addonService->validateSelections((int) $fresh['id'], $addonService->rawSelections((array) ($line['addons'] ?? [])), $db, true, (int) $line['quantity']);
+                $line['addonsUnitTotal'] = round(array_sum(array_column($line['addons'], 'total')), 2);
+                foreach ($line['addons'] as &$addon) {
+                    $addon['quantity_per_set'] = (int) $addon['quantity'];
+                    $addon['parent_quantity'] = (int) $line['quantity'];
+                    $addon['line_quantity'] = (int) $addon['quantity'] * (int) $line['quantity'];
+                    $addon['unit_total'] = (float) $addon['total'];
+                    $addon['line_total'] = round((float) $addon['total'] * (int) $line['quantity'], 2);
+                    $addon['quantity'] = $addon['line_quantity'];
+                }
+                unset($addon);
+                $line['addonsTotal'] = round($line['addonsUnitTotal'] * (int) $line['quantity'], 2);
+                $line['total'] = round(($line['price'] + $line['addonsUnitTotal']) * (int) $line['quantity'], 2);
             }
             unset($line);
             $addonDemand = [];
             $addonStock = [];
             foreach ($items as $line) foreach ((array) ($line['addons'] ?? []) as $addon) {
                 $addonId = (int) $addon['product_id'];
-                $addonDemand[$addonId] = ($addonDemand[$addonId] ?? 0) + (int) $addon['quantity'];
+                $addonDemand[$addonId] = ($addonDemand[$addonId] ?? 0) + (int) $addon['line_quantity'];
                 $addonStock[$addonId] = $addon;
             }
             foreach ($addonDemand as $addonId => $requestedQuantity) {
@@ -90,13 +100,13 @@ final class OrderService
                 $variant = $line['variant'] ?? null;
                 $addonSnapshot = array_map(static fn (array $addon): array => [
                     'product_id' => (int) $addon['product_id'], 'name' => $addon['name'], 'slug' => $addon['slug'], 'sku' => $addon['sku'],
-                    'image_path' => $addon['image_path'], 'price' => (float) $addon['price'], 'quantity' => (int) $addon['quantity'], 'total' => (float) $addon['total'],
+                    'image_path' => $addon['image_path'], 'price' => (float) $addon['price'], 'quantity' => (int) $addon['line_quantity'], 'quantity_per_set' => (int) $addon['quantity_per_set'], 'parent_quantity' => (int) $addon['parent_quantity'], 'total' => (float) $addon['line_total'],
                 ], (array) ($line['addons'] ?? []));
                 $itemStmt->execute([$orderId, $p['id'], $line['variant_id'], $p['name'], $variant['sku'] ?? $p['sku'], $variant['label'] ?? null, !empty($line['customization']) ? json_encode($line['customization']['values'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null, $line['customizationPrice'] ?? 0, $addonSnapshot ? json_encode($addonSnapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null, $line['addonsTotal'] ?? 0, $line['price'], $line['quantity'], $line['total'], $variant['image_path'] ?? $p['image_path']]);
                 if ($variant && $variant['stock_quantity'] !== null) $db->prepare('UPDATE product_variants SET stock_quantity=stock_quantity-?,stock_status=IF(stock_quantity-?<=0,"out_of_stock",stock_status) WHERE id=?')->execute([$line['quantity'], $line['quantity'], $variant['id']]);
                 elseif ($p['manage_stock']) $db->prepare('UPDATE products SET stock_quantity=stock_quantity-?, stock_status=IF(stock_quantity-?<=0,"out_of_stock",stock_status) WHERE id=?')->execute([$line['quantity'], $line['quantity'], $p['id']]);
                 foreach ((array) ($line['addons'] ?? []) as $addon) if (!empty($addon['manage_stock'])) {
-                    $db->prepare('UPDATE products SET stock_quantity=stock_quantity-?,stock_status=IF(stock_quantity-?<=0,"out_of_stock",stock_status) WHERE id=?')->execute([(int) $addon['quantity'], (int) $addon['quantity'], (int) $addon['product_id']]);
+                    $db->prepare('UPDATE products SET stock_quantity=stock_quantity-?,stock_status=IF(stock_quantity-?<=0,"out_of_stock",stock_status) WHERE id=?')->execute([(int) $addon['line_quantity'], (int) $addon['line_quantity'], (int) $addon['product_id']]);
                 }
             }
             $db->prepare('INSERT INTO payments (order_id,payment_method_key,provider,amount,status) VALUES (?,?,?,?,?)')->execute([$orderId, $method['key'], $method['key'] === 'online_card' ? (json_decode($method['settings_json'] ?? '{}', true)['provider'] ?? 'custom') : null, $total, $method['key'] === 'online_card' ? 'pending' : 'pending']);
@@ -110,7 +120,7 @@ final class OrderService
         return $order + ['gateway' => $result, 'payment_method_data' => $method];
     }
 
-    public function changeStatus(int $orderId, string $status, bool $notify, array $tracking = []): void
+    public function changeStatus(int $orderId, string $status, bool $notify, array $tracking = []): ?bool
     {
         $allowed = ['received','confirmed','processing','prepared','shipped','delivered','cancelled','returned'];
         if (!in_array($status, $allowed, true)) throw new RuntimeException('Status invalid.');
@@ -138,6 +148,6 @@ final class OrderService
                 $db->prepare('UPDATE orders SET stock_restored_at=NOW() WHERE id=?')->execute([$orderId]);
             }
         });
-        if ($notify) (new MailService())->orderStatus($orderId);
+        return $notify ? (new MailService())->orderStatus($orderId) : null;
     }
 }

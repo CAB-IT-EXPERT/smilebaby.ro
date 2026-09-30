@@ -147,7 +147,12 @@ $isCod = ($order['payment_method'] ?? '') === 'cash_on_delivery';
             <?php endif; ?>
 
             <section class="admin-order-card admin-order-customer-card">
-                <h2>Client și plată</h2>
+                <header class="admin-order-customer-head">
+                    <h2>Client și plată</h2>
+                    <button type="button" class="admin-order-edit-customer" data-order-customer-open aria-label="Editează datele clientului și plății">
+                        <?= icon('edit') ?><span>Editează</span>
+                    </button>
+                </header>
                 <dl>
                     <div><dt>Nume</dt><dd><strong><?= e($order['first_name'] . ' ' . $order['last_name']) ?></strong></dd></div>
                     <div><dt>Email</dt><dd><a href="mailto:<?= e($order['email']) ?>"><?= e($order['email']) ?></a></dd></div>
@@ -167,4 +172,61 @@ $isCod = ($order['payment_method'] ?? '') === 'cash_on_delivery';
 <dialog class="admin-order-image-dialog" data-order-image-dialog aria-label="Previzualizare produs">
     <button type="button" aria-label="Închide imaginea" data-order-image-close>×</button>
     <img src="" alt="" data-order-image-preview>
+</dialog>
+
+<dialog class="admin-order-customer-dialog" data-order-customer-dialog aria-labelledby="order-customer-dialog-title">
+    <form action="/admin/comenzi/<?= (int) $order['id'] ?>/client" method="post" data-order-customer-form>
+        <?= csrf_field() ?>
+        <header>
+            <div><span>EDITARE COMANDĂ</span><h2 id="order-customer-dialog-title">Client, livrare și plată</h2><p>Modificările se aplică numai acestei comenzi.</p></div>
+            <button type="button" class="admin-order-customer-close" data-order-customer-close aria-label="Închide fereastra"><?= icon('close') ?></button>
+        </header>
+
+        <div class="admin-order-customer-form-body">
+            <fieldset>
+                <legend><i><?= icon('user') ?></i><span><strong>Date client</strong><small>Identitatea și datele de contact</small></span></legend>
+                <div class="admin-order-customer-grid">
+                    <label><span>Prenume *</span><input type="text" name="first_name" value="<?= e($order['first_name']) ?>" maxlength="100" required></label>
+                    <label><span>Nume *</span><input type="text" name="last_name" value="<?= e($order['last_name']) ?>" maxlength="100" required></label>
+                    <label><span>Email *</span><input type="email" name="email" value="<?= e($order['email']) ?>" maxlength="190" required></label>
+                    <label><span>Telefon *</span><input type="tel" name="phone" value="<?= e($order['phone']) ?>" maxlength="40" required></label>
+                    <label class="admin-order-field-full"><span>Tip client</span><select name="customer_type" data-order-customer-type><option value="individual"<?= ($order['customer_type'] ?? 'individual') === 'individual' ? ' selected' : '' ?>>Persoană fizică</option><option value="company"<?= ($order['customer_type'] ?? '') === 'company' ? ' selected' : '' ?>>Persoană juridică</option></select></label>
+                </div>
+            </fieldset>
+
+            <fieldset data-order-company-fields<?= ($order['customer_type'] ?? 'individual') !== 'company' ? ' hidden' : '' ?>>
+                <legend><i><?= icon('bag') ?></i><span><strong>Date companie</strong><small>Informații pentru persoana juridică</small></span></legend>
+                <div class="admin-order-customer-grid">
+                    <label class="admin-order-field-full"><span>Denumire companie</span><input type="text" name="company_name" value="<?= e($order['company_name'] ?? '') ?>" maxlength="190"></label>
+                    <label><span>CUI / CIF</span><input type="text" name="company_vat_id" value="<?= e($order['company_vat_id'] ?? '') ?>" maxlength="50"></label>
+                    <label><span>Nr. Registrul Comerțului</span><input type="text" name="company_registration_number" value="<?= e($order['company_registration_number'] ?? '') ?>" maxlength="80"></label>
+                    <label class="admin-order-field-full"><span>Adresă companie</span><input type="text" name="company_address" value="<?= e($order['company_address'] ?? '') ?>" maxlength="255"></label>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend><i><?= icon('truck') ?></i><span><strong>Livrare</strong><small>Adresa completă și datele coletului</small></span></legend>
+                <div class="admin-order-customer-grid">
+                    <label class="admin-order-field-full"><span>Adresă *</span><input type="text" name="shipping_address" value="<?= e($order['shipping_address']) ?>" maxlength="255" required></label>
+                    <label><span>Localitate *</span><input type="text" name="shipping_city" value="<?= e($order['shipping_city']) ?>" maxlength="100" required></label>
+                    <label><span>Județ *</span><input type="text" name="shipping_county" value="<?= e($order['shipping_county']) ?>" maxlength="100" required></label>
+                    <label><span>Cod poștal</span><input type="text" name="shipping_postcode" value="<?= e($order['shipping_postcode'] ?? '') ?>" maxlength="20"></label>
+                    <label><span>Curier</span><input type="text" name="courier" value="<?= e($order['courier'] ?? '') ?>" maxlength="100"></label>
+                    <label><span>AWB</span><input type="text" name="awb" value="<?= e($order['awb'] ?? '') ?>" maxlength="100"></label>
+                    <label class="admin-order-field-full"><span>Link urmărire curier</span><input type="url" name="tracking_url" value="<?= e($order['tracking_url'] ?? '') ?>" maxlength="500" placeholder="https://..."></label>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend><i><?= icon('card') ?></i><span><strong>Plată</strong><small>Metoda și starea încasării</small></span></legend>
+                <div class="admin-order-customer-grid">
+                    <label><span>Metodă de plată</span><select name="payment_method"><option value="cash_on_delivery"<?= $order['payment_method'] === 'cash_on_delivery' ? ' selected' : '' ?>>Plată ramburs</option><option value="online_card"<?= $order['payment_method'] === 'online_card' ? ' selected' : '' ?>>Card online</option></select></label>
+                    <label><span>Stare plată</span><select name="payment_status"><option value="unpaid"<?= $order['payment_status'] === 'unpaid' ? ' selected' : '' ?>>Neplătită</option><option value="pending"<?= $order['payment_status'] === 'pending' ? ' selected' : '' ?>>În așteptare</option><option value="paid"<?= $order['payment_status'] === 'paid' ? ' selected' : '' ?>>Încasată</option><option value="failed"<?= $order['payment_status'] === 'failed' ? ' selected' : '' ?>>Eșuată</option><option value="refunded"<?= $order['payment_status'] === 'refunded' ? ' selected' : '' ?>>Rambursată</option></select></label>
+                </div>
+                <p class="admin-order-payment-warning">Schimbarea metodei în „Card online” este administrativă și nu inițiază automat o nouă plată.</p>
+            </fieldset>
+        </div>
+
+        <footer><button type="button" class="admin-order-customer-cancel" data-order-customer-close>Anulează</button><button type="submit" class="admin-order-customer-save"><?= icon('check') ?><span>Salvează modificările</span></button></footer>
+    </form>
 </dialog>

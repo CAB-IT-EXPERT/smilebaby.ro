@@ -144,8 +144,9 @@ final class ProductAddonService
         }
     }
 
-    public function validateSelections(int $productId, array $rawSelections, ?PDO $db = null, bool $lock = false): array
+    public function validateSelections(int $productId, array $rawSelections, ?PDO $db = null, bool $lock = false, int $multiplier = 1): array
     {
+        $multiplier = min(99, max(1, $multiplier));
         $requested = $this->requested($rawSelections);
         if (!$requested) return [];
         if (!Database::available()) throw new RuntimeException('Produsele suplimentare nu pot fi verificate momentan.');
@@ -176,7 +177,7 @@ final class ProductAddonService
         foreach ($requested as $addonId => $quantity) {
             $row = $configured[$addonId];
             if (!$this->available($row)) throw new RuntimeException('Produsul suplimentar „' . $row['name'] . '” nu mai este disponibil.');
-            if (!empty($row['manage_stock']) && empty($row['allow_backorders']) && (int) $row['stock_quantity'] < $quantity) {
+            if (!empty($row['manage_stock']) && empty($row['allow_backorders']) && (int) $row['stock_quantity'] < $quantity * $multiplier) {
                 throw new RuntimeException('Stoc insuficient pentru produsul suplimentar „' . $row['name'] . '”.');
             }
             $price = max(0, round((float) $row['price'], 2));

@@ -1,5 +1,5 @@
 .about-page{--about-ink:#4b3024;--about-accent:#a77552;padding:1.15rem 0 0;color:var(--about-ink)}
-.about-page .shell{width:min(calc(100% - 32px),1540px)}
+.about-page .shell{width:min(calc(100% - 40px),1740px)}
 .about-hero{display:grid;grid-template-columns:.82fr 1.18fr;min-height:560px;border:1px solid var(--sb-border);border-radius:30px;overflow:hidden;background:#fbf7f2}
 .about-hero-copy{display:flex;flex-direction:column;justify-content:center;padding:clamp(2.5rem,5vw,5.2rem)}
 .about-hero-copy h1{max-width:620px;margin:.9rem 0 1.25rem;font-size:clamp(2.75rem,4.2vw,4.5rem);line-height:1.04;letter-spacing:-.04em;color:var(--about-ink)}

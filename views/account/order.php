@@ -78,11 +78,7 @@ foreach ($items as $item) foreach ((array) json_decode((string) ($item['addons_j
                             </li>
                         <?php endforeach; ?>
                     </ol>
-                    <?php if ($order['awb']): ?>
-                        <div class="order-tracking-premium"><small><?= e($order['courier']) ?></small><strong>AWB <?= e($order['awb']) ?></strong><?php if ($order['tracking_url']): ?><a class="button" href="<?= e($order['tracking_url']) ?>" target="_blank" rel="noopener">URMĂREȘTE COLETUL</a><?php endif; ?></div>
-                    <?php else: ?>
-                        <div class="order-progress-note"><?= icon('clock') ?><span><strong>Te ținem la curent</strong></span></div>
-                    <?php endif; ?>
+                    <div class="order-progress-note"><?= icon('clock') ?><span><strong>Te ținem la curent</strong></span></div>
                 </aside>
             </div>
         </section>

@@ -1,5 +1,6 @@
 (() => {
   const rows = document.querySelectorAll('[data-order-row]');
+  document.querySelector('[data-orders-page-size]')?.addEventListener('change', event => event.currentTarget.form?.submit());
   if (!rows.length) return;
 
   const openOrder = (row) => {

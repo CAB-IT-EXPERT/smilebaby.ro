@@ -58,6 +58,7 @@ $active = static function (string $prefix, bool $exact = false) use ($path): str
     <link rel="stylesheet" href="<?= asset('css/admin-product-editor.css') ?>">
     <link rel="stylesheet" href="<?= asset('css/admin-customization.css') ?>">
     <link rel="stylesheet" href="<?= asset('css/admin-ui-fixes.css') ?>">
+    <link rel="stylesheet" href="<?= asset('css/stripe-settings.css') ?>">
 </head>
 <body class="admin-body" data-announcement-enabled="<?= filter_var(setting('announcement_enabled', '1'), FILTER_VALIDATE_BOOL) ? '1' : '0' ?>" data-return-shipping-cost="<?= e(setting('return_shipping_cost', '20')) ?>">
 <script>try{if(localStorage.getItem('smilebaby-admin-sidebar')==='collapsed')document.body.classList.add('admin-sidebar-collapsed')}catch(_){}</script>
@@ -80,8 +81,7 @@ $active = static function (string $prefix, bool $exact = false) use ($path): str
         <a href="/admin/clienti"<?= $active('/admin/clienti') ?>><?= icon('user') ?><span><strong>Clienți</strong><em>Conturi și istoric</em></span></a>
         <a href="/admin/recenzii"<?= $active('/admin/recenzii') ?>><?= icon('heart') ?><span><strong>Recenzii</strong><em>Opinii și răspunsuri</em></span></a>
 
-        <small>CONȚINUT</small>
-        <a href="/admin/articole"<?= $active('/admin/articole') ?>><?= icon('leaf') ?><span><strong>Atelier</strong><em>Articole și povești</em></span></a>
+        <small>COMUNICARE</small>
         <a href="/admin/newsletter"<?= $active('/admin/newsletter') ?>><?= icon('card') ?><span><strong>Newsletter</strong><em>Abonați și export</em></span></a>
 
         <small>SETĂRI MAGAZIN</small>

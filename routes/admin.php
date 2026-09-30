@@ -11,6 +11,7 @@ $router->post('/admin/produse/salvare', [AdminController::class, 'saveProduct'],
 $router->post('/admin/produse/{id}/salvare', [AdminController::class, 'saveProduct'], ['admin','csrf']);
 $router->post('/admin/produse/{id}/arhivare', [AdminController::class, 'archiveProduct'], ['admin','csrf']);
 $router->post('/admin/produse/genereaza-sku', [AdminController::class, 'generateMissingProductSkus'], ['admin','csrf']);
+$router->post('/admin/produse/stripe/sincronizare', [AdminController::class, 'syncStripeCatalog'], ['admin','csrf']);
 $router->post('/admin/produse/{id}/stergere', [AdminController::class, 'deleteProduct'], ['admin','csrf']);
 $router->post('/admin/imagini/{id}/stergere', [AdminController::class, 'deleteImage'], ['admin','csrf']);
 $router->get('/admin/categorii', [AdminController::class, 'categories'], ['admin']);
@@ -26,6 +27,7 @@ $router->get('/admin/comenzi/export/pdf', [AdminController::class, 'ordersPdf'],
 $router->get('/admin/comenzi/{id}', [AdminController::class, 'order'], ['admin']);
 $router->post('/admin/comenzi/{id}', [AdminController::class, 'updateOrder'], ['admin','csrf']);
 $router->post('/admin/comenzi/{id}/plata', [AdminController::class, 'updateOrderPayment'], ['admin','csrf']);
+$router->post('/admin/comenzi/{id}/client', [AdminController::class, 'updateOrderCustomer'], ['admin','csrf']);
 $router->get('/admin/clienti', [AdminController::class, 'customers'], ['admin']);
 $router->get('/admin/clienti/{id}', [AdminController::class, 'customer'], ['admin']);
 $router->get('/admin/recenzii', [AdminController::class, 'reviews'], ['admin']);
@@ -46,3 +48,6 @@ $router->post('/admin/setari', [AdminController::class, 'saveSettings'], ['admin
 $router->post('/admin/setari/email', [AdminController::class, 'saveEmailSettings'], ['admin','csrf']);
 $router->post('/admin/setari/email/test', [AdminController::class, 'testEmail'], ['admin','csrf']);
 $router->post('/admin/setari/plati/{key}', [AdminController::class, 'savePayment'], ['admin','csrf']);
+$router->post('/admin/setari/plati/stripe/webhook', [AdminController::class, 'configureStripeWebhook'], ['admin','csrf']);
+$router->get('/admin/previzualizari/comanda/{state}', [AdminController::class, 'orderExperiencePreview'], ['admin']);
+$router->get('/admin/previzualizari/email/{type}', [AdminController::class, 'orderEmailPreview'], ['admin']);

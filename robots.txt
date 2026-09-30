@@ -5,4 +5,4 @@ Disallow: /checkout
 Disallow: /cos
 Disallow: /cont
 Disallow: /cauta
-Sitemap: https://www.smilebaby.ro/sitemap.xml
+Sitemap: https://smilebaby.ro/sitemap.xml

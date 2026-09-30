@@ -11,7 +11,7 @@ $limitReached = $catalogTotal >= $productLimit;
 <section class="admin-catalog-page">
     <header class="admin-catalog-head">
         <div><span class="eyebrow">CATALOG</span><h1>Produse</h1><p><strong><?= (int) $catalogTotal ?></strong> produse din <strong><?= (int) $productLimit ?></strong><?php if ($q !== '' || $status !== ''): ?> · <?= (int) $total ?> rezultate afișate<?php endif ?></p></div>
-        <?php if ($limitReached): ?><button class="admin-button catalog-add-button is-limited" type="button" data-product-limit-open>ADAUGĂ PRODUS</button><?php else: ?><a class="admin-button catalog-add-button" href="/admin/produse/creare">ADAUGĂ PRODUS</a><?php endif ?>
+        <div class="admin-catalog-head-actions"><form action="/admin/produse/stripe/sincronizare" method="post"><?= csrf_field() ?><button class="admin-button secondary" type="submit">SINCRONIZEAZĂ STRIPE</button></form><?php if ($limitReached): ?><button class="admin-button catalog-add-button is-limited" type="button" data-product-limit-open>ADAUGĂ PRODUS</button><?php else: ?><a class="admin-button catalog-add-button" href="/admin/produse/creare">ADAUGĂ PRODUS</a><?php endif ?></div>
     </header>
     <?php if ($limitReached): ?><dialog class="product-limit-dialog" data-product-limit-dialog><button type="button" aria-label="Închide" data-product-limit-close>×</button><span>LIMITĂ PLAN</span><i><?= icon('bag') ?></i><h2>Catalogul este complet</h2><p><?= e($productLimitMessage) ?></p><button class="admin-button" type="button" data-product-limit-close>AM ÎNȚELES</button></dialog><?php endif ?>
     <div class="admin-product-search" data-product-search>

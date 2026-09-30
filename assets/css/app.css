@@ -34,6 +34,14 @@
 @import url('./tracking-page.css');
 @import url('./customization.css');
 @import url('./product-addons.css');
+@import url('./policy-notices.css');
+@import url('./product-variants.css');
+@import url('./order-result.css');
+
+/* SmileBaby has an intentionally light visual identity. Opt out of browser-level
+   automatic darkening, which otherwise distorts product photos and brand colors. */
+:root{color-scheme:only light}
+html,body{background-color:#fcfaf7}
 
 /* Emoji imported from WordPress descriptions must behave like text, not content images. */
 .product-details img.emoji,.product-short img.emoji{display:inline-block;width:1em;height:1em;margin:0 .08em;vertical-align:-.12em;box-shadow:none;object-fit:contain}

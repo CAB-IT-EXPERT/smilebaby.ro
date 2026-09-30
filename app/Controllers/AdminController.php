@@ -15,6 +15,8 @@ use App\Services\ProductAddonService;
 use App\Services\ProductCustomizationService;
 use App\Services\SmtpClient;
 use App\Services\SmartProductSearchService;
+use App\Services\StripeCatalogService;
+use App\Services\StripeClient;
 use PDO;
 
 final class AdminController
@@ -77,6 +79,7 @@ final class AdminController
     public function products(Request $request): void
     {
         $db = Database::connection();
+        (new StripeCatalogService())->ensureSchema($db);
         $catalogTotal = (int) $db->query('SELECT COUNT(*) FROM products')->fetchColumn();
         $q = trim((string) ($request->query['q'] ?? ''));
         $status = trim((string) ($request->query['status'] ?? ''));
@@ -210,7 +213,7 @@ final class AdminController
             Session::flash('error', 'Selectează cel puțin un produs suplimentar înainte să activezi această opțiune.');
             Response::redirect($id ? '/admin/produse/' . $id . '/editare?step=6' : '/admin/produse/creare?step=6');
         }
-        $data = [trim((string) $request->input('name')), $slug, trim((string) $request->input('sku')) ?: null, trim((string) $request->input('gtin')) ?: null, (string) $request->input('short_description'), (string) $request->input('description'), (float) $request->input('regular_price'), $request->input('sale_price') !== '' ? (float) $request->input('sale_price') : null, $manageStock, $stockQuantity, $lowStockThreshold, $stockStatus, $allowBackorders, (int) (bool) $request->input('featured'), max(0, (int) $request->input('featured_order')), (int) (bool) $request->input('is_customizable'), max(0, (float) $request->input('customization_price', 0)), mb_substr(trim((string) $request->input('badge_text')), 0, 80) ?: null, trim((string) $request->input('brand')) ?: null, (string) $request->input('status', 'draft'), trim((string) $request->input('meta_title')) ?: null, trim((string) $request->input('meta_description')) ?: null, trim((string) $request->input('canonical_url')) ?: null, (int) (bool) $request->input('indexable')];
+        $data = [trim((string) $request->input('name')), $slug, trim((string) $request->input('sku')) ?: null, trim((string) $request->input('gtin')) ?: null, (string) $request->input('short_description'), sanitize_rich_html((string) $request->input('description')), (float) $request->input('regular_price'), $request->input('sale_price') !== '' ? (float) $request->input('sale_price') : null, $manageStock, $stockQuantity, $lowStockThreshold, $stockStatus, $allowBackorders, (int) (bool) $request->input('featured'), max(0, (int) $request->input('featured_order')), (int) (bool) $request->input('is_customizable'), max(0, (float) $request->input('customization_price', 0)), mb_substr(trim((string) $request->input('badge_text')), 0, 80) ?: null, trim((string) $request->input('brand')) ?: null, (string) $request->input('status', 'draft'), trim((string) $request->input('meta_title')) ?: null, trim((string) $request->input('meta_description')) ?: null, trim((string) $request->input('canonical_url')) ?: null, (int) (bool) $request->input('indexable')];
         Database::transaction(function (PDO $db) use (&$id, $data, $request, $oldSlug, $customization, $addons, $addonProductIds) {
             if ($id) { $stmt = $db->prepare('UPDATE products SET name=?,slug=?,sku=?,gtin=?,short_description=?,description=?,regular_price=?,sale_price=?,manage_stock=?,stock_quantity=?,low_stock_threshold=?,stock_status=?,allow_backorders=?,featured=?,featured_order=?,is_customizable=?,customization_price=?,badge_text=?,brand=?,status=?,meta_title=?,meta_description=?,canonical_url=?,indexable=? WHERE id=?'); $stmt->execute([...$data, $id]); }
             else { $stmt = $db->prepare('INSERT INTO products (name,slug,sku,gtin,short_description,description,regular_price,sale_price,manage_stock,stock_quantity,low_stock_threshold,stock_status,allow_backorders,featured,featured_order,is_customizable,customization_price,badge_text,brand,status,meta_title,meta_description,canonical_url,indexable) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'); $stmt->execute($data); $id = (int) $db->lastInsertId(); }
@@ -286,6 +289,11 @@ final class AdminController
             Session::flash('error', $error->getMessage());
             Response::redirect('/admin/produse/' . $id . '/editare?step=3');
         }
+        try {
+            (new StripeCatalogService())->sync($id);
+        } catch (\Throwable $error) {
+            Session::flash('error', 'Produsul a fost salvat local, dar sincronizarea Stripe trebuie reîncercată: ' . $error->getMessage());
+        }
         Session::flash('product_saved', [
             'mode' => $isCreate ? 'created' : 'updated',
             'id' => $id,
@@ -295,7 +303,28 @@ final class AdminController
         Response::redirect('/admin/produse');
     }
 
-    public function archiveProduct(Request $request): void { Database::connection()->prepare('UPDATE products SET status="archived" WHERE id=?')->execute([(int) $request->params['id']]); Session::flash('success', 'Produsul a fost arhivat.'); Response::redirect('/admin/produse'); }
+    public function archiveProduct(Request $request): void
+    {
+        $id = (int) $request->params['id'];
+        Database::connection()->prepare('UPDATE products SET status="archived" WHERE id=?')->execute([$id]);
+        try { (new StripeCatalogService())->sync($id); }
+        catch (\Throwable $error) { Session::flash('error', 'Produsul a fost arhivat local, dar Stripe nu a putut fi actualizat: ' . $error->getMessage()); }
+        Session::flash('success', 'Produsul a fost arhivat.');
+        Response::redirect('/admin/produse');
+    }
+
+    public function syncStripeCatalog(Request $request): void
+    {
+        try {
+            $result = (new StripeCatalogService())->syncAll();
+            $message = $result['success'] . ' produse sincronizate cu Stripe.';
+            if ($result['failed']) $message .= ' ' . $result['failed'] . ' produse au nevoie de reverificare.';
+            Session::flash($result['failed'] ? 'error' : 'success', $message);
+        } catch (\Throwable $error) {
+            Session::flash('error', 'Catalogul Stripe nu a putut fi sincronizat: ' . $error->getMessage());
+        }
+        Response::redirect('/admin/produse');
+    }
     public function generateMissingProductSkus(Request $request): void
     {
         $db = Database::connection();
@@ -332,12 +361,57 @@ final class AdminController
         $stmt->execute([$id]);
         $name = $stmt->fetchColumn();
         if (!$name) { Session::flash('error', 'Produsul nu a fost găsit.'); Response::redirect('/admin/produse'); }
+        try { (new StripeCatalogService())->deactivate($id); }
+        catch (\Throwable $error) { Session::flash('error', 'Produsul va fi șters local, dar dezactivarea din Stripe trebuie verificată: ' . $error->getMessage()); }
         Database::transaction(function (PDO $transaction) use ($id) { $transaction->prepare('DELETE FROM products WHERE id=?')->execute([$id]); });
         foreach ($imagePaths as $path) if ($path && str_starts_with($path, 'uploads/products/') && is_file(BASE_PATH . '/' . $path)) @unlink(BASE_PATH . '/' . $path);
         Session::flash('success', 'Produsul „' . $name . '” a fost șters definitiv.');
         Response::redirect('/admin/produse');
     }
     public function deleteImage(Request $request): void { $stmt = Database::connection()->prepare('SELECT image_path FROM product_images WHERE id=?'); $stmt->execute([(int) $request->params['id']]); $path = $stmt->fetchColumn(); Database::connection()->prepare('DELETE FROM product_images WHERE id=?')->execute([(int) $request->params['id']]); if ($path && str_starts_with($path, 'uploads/products/') && is_file(BASE_PATH . '/' . $path)) unlink(BASE_PATH . '/' . $path); Response::redirect($request->server['HTTP_REFERER'] ?? '/admin/produse'); }
+
+    public function orderExperiencePreview(Request $request): void
+    {
+        $allowed = ['received','paid','pending','failed','cancelled','order_cancelled'];
+        $state = in_array((string) ($request->params['state'] ?? ''), $allowed, true) ? (string) $request->params['state'] : 'received';
+        [$order, $items] = $this->previewOrder((int) ($request->query['order_id'] ?? 0));
+        if ($state === 'received') {
+            $order['payment_method'] = 'cash_on_delivery'; $order['payment_method_label'] = 'Plată ramburs'; $order['payment_status'] = 'unpaid';
+        } else {
+            $order['payment_method'] = 'online_card'; $order['payment_method_label'] = 'Plată online cu cardul';
+            $order['payment_status'] = $state === 'paid' ? 'paid' : ($state === 'failed' ? 'failed' : 'pending');
+        }
+        if ($state === 'order_cancelled') $order['status'] = 'cancelled';
+        View::render('storefront/payment-result', ['order' => $order, 'items' => $items, 'displayState' => $state, 'meta' => ['title' => 'Previzualizare experiență comandă', 'robots' => 'noindex,nofollow']], 'layouts/storefront');
+    }
+
+    public function orderEmailPreview(Request $request): void
+    {
+        $type = (string) ($request->params['type'] ?? 'received');
+        [$order, $items] = $this->previewOrder((int) ($request->query['order_id'] ?? 0));
+        $customer = $order;
+        if ($type === 'internal') $template = 'order-internal';
+        elseif ($type === 'received') $template = 'order';
+        else {
+            $statuses = ['confirmed','processing','prepared','shipped','delivered','cancelled','returned'];
+            $order['status'] = in_array($type, $statuses, true) ? $type : 'confirmed';
+            $template = 'status';
+        }
+        header('Content-Type: text/html; charset=utf-8');
+        require BASE_PATH . '/views/emails/' . $template . '.php';
+    }
+
+    private function previewOrder(int $orderId = 0): array
+    {
+        $db = Database::connection();
+        if ($orderId > 0) { $stmt = $db->prepare('SELECT * FROM orders WHERE id=? LIMIT 1'); $stmt->execute([$orderId]); }
+        else $stmt = $db->query('SELECT * FROM orders ORDER BY id DESC LIMIT 1');
+        $order = $stmt->fetch();
+        if (!$order) throw new \RuntimeException('Nu există încă o comandă pentru previzualizare.');
+        $items = $db->prepare('SELECT * FROM order_items WHERE order_id=? ORDER BY id');
+        $items->execute([(int) $order['id']]);
+        return [$order, $items->fetchAll()];
+    }
 
     public function categories(Request $request): void { $categories = Database::connection()->query('SELECT c.*,(SELECT COUNT(*) FROM product_categories WHERE category_id=c.id) product_count,(SELECT name FROM categories p WHERE p.id=c.parent_id) parent_name FROM categories c ORDER BY c.homepage_order,c.name')->fetchAll(); View::render('admin/categories', compact('categories'), 'layouts/admin'); }
     public function categoryForm(Request $request): void { $id = (int) ($request->params['id'] ?? 0); Response::redirect('/admin/categorii?' . ($id ? 'edit=' . $id : 'create=1')); }
@@ -369,9 +443,20 @@ final class AdminController
 
     public function orders(Request $request): void
     {
+        $perPage = (int) ($request->query['per_page'] ?? 20);
+        $page = max(1, (int) ($request->query['page'] ?? 1));
+        if (!in_array($perPage, [10, 20, 50, 100], true)) $perPage = 20;
+        $total = $this->filteredOrderCount($request);
+        $pages = max(1, (int) ceil($total / $perPage));
+        $page = min($page, $pages);
+        $offset = ($page - 1) * $perPage;
         View::render('admin/orders', [
-            'orders' => $this->filteredOrders($request, 500),
+            'orders' => $this->filteredOrders($request, $perPage, $offset),
             'filters' => $request->query,
+            'perPage' => $perPage,
+            'page' => $page,
+            'pages' => $pages,
+            'total' => $total,
         ], 'layouts/admin');
     }
 
@@ -439,10 +524,12 @@ final class AdminController
         $id=(int)$request->params['id'];
         try{
             $db=Database::connection();$stmt=$db->prepare('SELECT courier,awb,tracking_url FROM orders WHERE id=?');$stmt->execute([$id]);$current=$stmt->fetch();if(!$current)throw new \RuntimeException('Comanda nu există.');
-            (new OrderService())->changeStatus($id,(string)$request->input('status'),(bool)$request->input('notify'),['courier'=>$current['courier']??'','awb'=>$current['awb']??'','tracking_url'=>$current['tracking_url']??'','message'=>trim((string)$request->input('message'))]);
+            $notify=(bool)$request->input('notify');
+            $emailAccepted=(new OrderService())->changeStatus($id,(string)$request->input('status'),$notify,['courier'=>$current['courier']??'','awb'=>$current['awb']??'','tracking_url'=>$current['tracking_url']??'','message'=>trim((string)$request->input('message'))]);
             $internalNote=trim((string)$request->input('internal_note'));
             if($internalNote!=='')$db->prepare('INSERT INTO order_notes (order_id,user_id,note,visible_to_customer) VALUES (?,?,?,0)')->execute([$id,Auth::user()['id']??null,$internalNote]);
-            Session::flash('success','Statusul comenzii a fost actualizat.');
+            if($notify&&$emailAccepted===false)Session::flash('error','Statusul a fost actualizat, dar notificarea nu a putut fi predată serverului de email. Verifică jurnalul emailurilor.');
+            else Session::flash('success',$notify?'Statusul a fost actualizat, iar notificarea a fost predată serverului de email.':'Statusul comenzii a fost actualizat.');
         }catch(\Throwable $e){Session::flash('error',$e->getMessage());}
         Response::redirect('/admin/comenzi/'.$id);
     }
@@ -457,6 +544,61 @@ final class AdminController
             Session::flash('success',$status==='paid'?'Plata a fost marcată ca încasată.':'Plata a fost marcată ca neîncasată.');
         }catch(\Throwable $e){Session::flash('error',$e->getMessage());}
         Response::redirect('/admin/comenzi/'.$id);
+    }
+
+    public function updateOrderCustomer(Request $request): void
+    {
+        $id = (int) $request->params['id'];
+        try {
+            $db = Database::connection();
+            $exists = $db->prepare('SELECT id FROM orders WHERE id=? LIMIT 1');
+            $exists->execute([$id]);
+            if (!$exists->fetchColumn()) throw new \RuntimeException('Comanda nu există.');
+
+            $firstName = trim((string) $request->input('first_name'));
+            $lastName = trim((string) $request->input('last_name'));
+            $email = trim((string) $request->input('email'));
+            $phone = trim((string) $request->input('phone'));
+            $shippingAddress = trim((string) $request->input('shipping_address'));
+            $shippingCity = trim((string) $request->input('shipping_city'));
+            $shippingCounty = trim((string) $request->input('shipping_county'));
+            if ($firstName === '' || $lastName === '' || $phone === '' || $shippingAddress === '' || $shippingCity === '' || $shippingCounty === '') {
+                throw new \RuntimeException('Completează numele, telefonul și toate datele obligatorii de livrare.');
+            }
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) throw new \RuntimeException('Adresa de email nu este validă.');
+
+            $customerType = in_array($request->input('customer_type'), ['individual', 'company'], true) ? (string) $request->input('customer_type') : 'individual';
+            $paymentMethod = in_array($request->input('payment_method'), ['cash_on_delivery', 'online_card'], true) ? (string) $request->input('payment_method') : 'cash_on_delivery';
+            $paymentStatus = in_array($request->input('payment_status'), ['unpaid', 'pending', 'paid', 'failed', 'refunded'], true) ? (string) $request->input('payment_status') : 'unpaid';
+            $paymentLabel = $paymentMethod === 'online_card' ? 'Plată online cu cardul' : 'Plată ramburs';
+
+            $values = [
+                $firstName, $lastName, $email, $phone, $customerType,
+                trim((string) $request->input('company_name')) ?: null,
+                trim((string) $request->input('company_vat_id')) ?: null,
+                trim((string) $request->input('company_registration_number')) ?: null,
+                trim((string) $request->input('company_address')) ?: null,
+                $shippingAddress, $shippingCity, $shippingCounty,
+                trim((string) $request->input('shipping_postcode')) ?: null,
+                $paymentMethod, $paymentLabel, $paymentStatus,
+                trim((string) $request->input('courier')) ?: null,
+                trim((string) $request->input('awb')) ?: null,
+                trim((string) $request->input('tracking_url')) ?: null,
+                $id,
+            ];
+
+            Database::transaction(function ($db) use ($values, $id, $paymentStatus): void {
+                $db->prepare('UPDATE orders SET first_name=?,last_name=?,email=?,phone=?,customer_type=?,company_name=?,company_vat_id=?,company_registration_number=?,company_address=?,shipping_address=?,shipping_city=?,shipping_county=?,shipping_postcode=?,payment_method=?,payment_method_label=?,payment_status=?,courier=?,awb=?,tracking_url=?,updated_at=NOW() WHERE id=?')->execute($values);
+                $paymentRowStatus = match ($paymentStatus) {
+                    'paid' => 'paid', 'failed' => 'failed', 'refunded' => 'refunded', default => 'pending',
+                };
+                $db->prepare('UPDATE payments SET status=?,updated_at=NOW() WHERE order_id=?')->execute([$paymentRowStatus, $id]);
+            });
+            Session::flash('success', 'Datele clientului, livrării și plății au fost actualizate.');
+        } catch (\Throwable $e) {
+            Session::flash('error', $e->getMessage());
+        }
+        Response::redirect('/admin/comenzi/' . $id);
     }
 
     public function reviews(Request $request): void
@@ -670,12 +812,38 @@ final class AdminController
     public function savePayment(Request $request): void
     {
         $key=$request->params['key'];$stmt=Database::connection()->prepare('SELECT * FROM payment_methods WHERE `key`=?');$stmt->execute([$key]);$method=$stmt->fetch();if(!$method){http_response_code(404);return;}$settings=json_decode($method['settings_json']?:'{}',true)?:[];
-        foreach(['provider','merchant_id','checkout_url','beneficiary','iban','bank'] as $field)if($request->input($field)!==null)$settings[$field]=trim((string)$request->input($field));if($request->input('test_mode')!==null)$settings['test_mode']=(bool)$request->input('test_mode');if(trim((string)$request->input('webhook_secret'))!=='')$settings['webhook_secret_encrypted']=Crypto::encrypt(trim((string)$request->input('webhook_secret')));
-        $enabled=(int)(bool)$request->input('enabled');if($key==='online_card'&&$enabled&&(empty($settings['merchant_id'])||empty($settings['checkout_url'])||(!$settings['test_mode']&&empty($settings['webhook_secret_encrypted'])))){Session::flash('error','Completează configurarea procesatorului înainte de activare. Pentru modul live este obligatoriu și secretul webhook.');Response::redirect('/admin/setari#plati');}
+        if($key==='online_card'){$settings['provider']='stripe';$settings['test_mode']=str_starts_with((string)config('payments.stripe.secret_key',''),'sk_test_');}
+        $enabled=(int)(bool)$request->input('enabled');if($key==='online_card'&&$enabled&&!str_starts_with((string)config('payments.stripe.secret_key',''),'sk_')){Session::flash('error','Cheia secretă Stripe nu este configurată pe server.');Response::redirect('/admin/setari#plati');}
         Database::connection()->prepare('UPDATE payment_methods SET name=?,description=?,enabled=?,sort_order=?,fee_type=?,fee_value=?,minimum_order=?,maximum_order=?,instructions=?,settings_json=? WHERE `key`=?')->execute([trim($request->input('name')),$request->input('description'),$enabled,(int)$request->input('sort_order'),$request->input('fee_type','none'),(float)$request->input('fee_value'),$request->input('minimum_order')!==''?$request->input('minimum_order'):null,$request->input('maximum_order')!==''?$request->input('maximum_order'):null,$method['instructions'],json_encode($settings,JSON_UNESCAPED_UNICODE),$key]);Session::flash('success','Metoda de plată a fost '.($enabled?'activată și salvată.':'dezactivată și salvată.'));Response::redirect('/admin/setari#plati');
     }
 
-    private function filteredOrders(Request $request, int $limit): array
+    public function configureStripeWebhook(Request $request): void
+    {
+        try {
+            $endpoint = (new StripeClient())->post('/v1/webhook_endpoints', [
+                'url' => (string) config('payments.stripe.webhook_url'),
+                'description' => 'SmileBaby — confirmare automată plăți și comenzi',
+                'enabled_events' => ['checkout.session.completed','checkout.session.async_payment_succeeded','checkout.session.async_payment_failed','checkout.session.expired'],
+                'metadata' => ['integration' => 'smilebaby'],
+            ], 'smilebaby-webhook-' . bin2hex(random_bytes(8)));
+            $secret = (string) ($endpoint['secret'] ?? '');
+            if (!str_starts_with($secret, 'whsec_')) throw new \RuntimeException('Stripe nu a returnat secretul endpointului.');
+            $stmt = Database::connection()->prepare('SELECT settings_json FROM payment_methods WHERE `key`="online_card" LIMIT 1');
+            $stmt->execute();
+            $settings = json_decode((string) $stmt->fetchColumn(), true) ?: [];
+            $settings['provider'] = 'stripe';
+            $settings['test_mode'] = str_starts_with((string) config('payments.stripe.secret_key'), 'sk_test_');
+            $settings['stripe_webhook_endpoint_id'] = (string) ($endpoint['id'] ?? '');
+            $settings['stripe_webhook_secret_encrypted'] = Crypto::encrypt($secret);
+            Database::connection()->prepare('UPDATE payment_methods SET enabled=1,settings_json=? WHERE `key`="online_card"')->execute([json_encode($settings, JSON_UNESCAPED_SLASHES)]);
+            Session::flash('success', 'Webhookul Stripe a fost creat și secretul a fost salvat criptat.');
+        } catch (\Throwable $error) {
+            Session::flash('error', 'Webhookul Stripe nu a putut fi configurat: ' . mb_substr($error->getMessage(), 0, 260));
+        }
+        Response::redirect('/admin/setari#plati');
+    }
+
+    private function orderFilterParts(Request $request): array
     {
         $where = ['1=1'];
         $params = [];
@@ -697,7 +865,23 @@ final class AdminController
             $like = '%' . $search . '%';
             array_push($params, $like, $like, $like, $like);
         }
-        $stmt = Database::connection()->prepare('SELECT * FROM orders WHERE ' . implode(' AND ', $where) . ' ORDER BY created_at DESC LIMIT ' . max(1, min(5000, $limit)));
+        return [implode(' AND ', $where), $params];
+    }
+
+    private function filteredOrderCount(Request $request): int
+    {
+        [$where, $params] = $this->orderFilterParts($request);
+        $stmt = Database::connection()->prepare('SELECT COUNT(*) FROM orders WHERE ' . $where);
+        $stmt->execute($params);
+        return (int) $stmt->fetchColumn();
+    }
+
+    private function filteredOrders(Request $request, int $limit, int $offset = 0): array
+    {
+        [$where, $params] = $this->orderFilterParts($request);
+        $limit = max(1, min(5000, $limit));
+        $offset = max(0, $offset);
+        $stmt = Database::connection()->prepare('SELECT * FROM orders WHERE ' . $where . ' ORDER BY created_at DESC,id DESC LIMIT ' . $limit . ' OFFSET ' . $offset);
         $stmt->execute($params);
         return $stmt->fetchAll();
     }

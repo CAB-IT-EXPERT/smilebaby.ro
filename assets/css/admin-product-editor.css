@@ -25,6 +25,31 @@
 @media(max-width:560px){.product-editor-head .eyebrow{font-size:.43rem}.product-editor-head h2{font-size:1.55rem}.product-form-grid.two,.product-form-grid.three{grid-template-columns:1fr}.product-step-title h3{font-size:1.25rem}.product-category-checks{grid-template-columns:1fr}.product-variant-intro{align-items:flex-start;flex-wrap:wrap}.product-variant-intro button{width:100%;margin-left:0}.product-image-preview,.product-existing-images{grid-template-columns:repeat(2,1fr)}.product-editor-footer [data-product-step-prev]{font-size:0}.product-editor-footer [data-product-step-prev]:after{content:"←";font-size:.8rem}.product-archive-button{font-size:0!important;width:42px;padding:0!important}.product-archive-button:after{content:"×";font-size:1rem}.product-media-manager{margin-inline:-.35rem;padding:.65rem}.product-media-manager>header{display:grid}.product-media-manager>header>p{justify-items:start}.product-media-card,.product-media-add{flex-basis:170px;min-height:170px}.product-media-manager>footer{align-items:flex-start;text-align:left;font-size:.58rem}.product-media-gallery{min-height:202px;padding:.55rem}.product-media-drag,.product-media-remove{width:36px!important;height:36px!important}.product-media-actions button{width:32px!important;height:32px!important}}
 @media(prefers-reduced-motion:reduce){.product-editor-dialog[open],.product-editor-step.active{animation:none}}
 
+/* Editor vizual pentru descrierea completă a produsului. */
+.product-rich-field{display:grid;gap:.42rem}
+.product-rich-label{display:flex;align-items:end;justify-content:space-between;gap:1rem}
+.product-rich-label>span{font-size:.59rem;font-weight:700}
+.product-rich-label>small{color:#958378;font-size:.47rem}
+.product-rich-editor{overflow:hidden;border:1px solid #d9c9be;border-radius:17px;background:#fff;box-shadow:0 10px 28px rgba(73,49,34,.045);transition:border-color .18s,box-shadow .18s}
+.product-rich-editor:focus-within{border-color:#a9795b;box-shadow:0 0 0 4px rgba(169,121,91,.1),0 14px 34px rgba(73,49,34,.07)}
+.product-rich-toolbar{display:flex;align-items:center;gap:.32rem;flex-wrap:wrap;min-height:54px;padding:.45rem .55rem;border-bottom:1px solid #e8ddd5;background:linear-gradient(180deg,#fff,#fbf7f3)}
+.product-rich-toolbar>button{display:inline-flex!important;align-items:center!important;justify-content:center!important;width:auto!important;min-width:36px!important;min-height:36px!important;margin:0!important;padding:0 .62rem!important;border:1px solid transparent!important;border-radius:9px!important;background:transparent!important;color:#614b3e!important;font:600 .56rem var(--sans)!important;cursor:pointer;transition:.16s!important}
+.product-rich-toolbar>button:hover,.product-rich-toolbar>button:focus-visible{border-color:#ddcbbf!important;background:#f4e9e1!important;color:#744e36!important;outline:0}
+.product-rich-toolbar>button b,.product-rich-toolbar>button i,.product-rich-toolbar>button u{font-size:.72rem}
+.product-rich-toolbar>span{width:1px;height:25px;margin:0 .12rem;background:#e4d8cf}
+.product-rich-toolbar>label{display:flex!important;align-items:center!important;gap:.35rem!important;margin:0!important;color:#8f7a6d;font-size:.48rem!important}
+.product-rich-toolbar select{width:auto!important;min-width:122px!important;min-height:36px!important;margin:0!important;padding:.35rem 1.8rem .35rem .55rem!important;border:1px solid #e1d4cb!important;border-radius:9px!important;background-color:#fff!important;font-size:.51rem!important;box-shadow:none!important}
+.product-rich-canvas{min-height:270px;max-height:430px;padding:1.15rem 1.25rem;overflow:auto;color:#4d3a31;font:500 .72rem/1.72 var(--sans);outline:0;scrollbar-color:#d6c2b4 transparent;scrollbar-width:thin}
+.product-rich-canvas:empty:before{content:attr(data-placeholder);color:#ae9d92;pointer-events:none}
+.product-rich-canvas p{margin:0 0 .85rem}.product-rich-canvas p:last-child{margin-bottom:0}
+.product-rich-canvas h2,.product-rich-canvas h3{margin:1.15rem 0 .55rem;color:#4a3429;font-family:var(--serif);line-height:1.22}.product-rich-canvas h2{font-size:1.45rem}.product-rich-canvas h3{font-size:1.12rem}
+.product-rich-canvas ul,.product-rich-canvas ol{display:grid;gap:.3rem;margin:.55rem 0 .9rem;padding-left:1.45rem}
+.product-rich-canvas blockquote{margin:.75rem 0;padding:.8rem 1rem;border-left:3px solid #b47c59;border-radius:0 12px 12px 0;background:#faf2eb;color:#765b4a;font-family:var(--serif);font-style:italic}
+.product-rich-canvas a{color:#946247;text-decoration:underline;text-underline-offset:3px}
+.product-rich-editor>footer{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.52rem .75rem;border-top:1px solid #ece2da;background:#fcf9f6;color:#9a887c;font-size:.45rem}
+.product-rich-editor>footer b{color:#795d4b;font-size:.47rem}
+@media(max-width:700px){.product-rich-label{display:grid;gap:.12rem}.product-rich-toolbar{gap:.2rem}.product-rich-toolbar>span{display:none}.product-rich-toolbar>button{min-width:34px!important;padding-inline:.48rem!important}.product-rich-toolbar>label{order:10;width:100%}.product-rich-toolbar select{flex:1}.product-rich-canvas{min-height:230px;padding:.9rem}}
+
 /* Panoul central rămâne strict în rama modalului; numai conținutul lui se derulează. */
 .product-editor-content{contain:paint}
 .product-editor-progress{min-height:0;overflow:hidden}

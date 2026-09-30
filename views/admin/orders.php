@@ -19,11 +19,28 @@ $paymentStatusLabels = [
 $cleanMessage = static function (?string $message): string {
     return trim(str_replace('[COMANDĂ TEST]', '', (string) $message));
 };
+$search = trim((string) ($filters['q'] ?? ''));
+$statusFilter = trim((string) ($filters['status'] ?? ''));
 $query = array_filter([
-    'q' => trim((string) ($filters['q'] ?? '')),
-    'status' => trim((string) ($filters['status'] ?? '')),
+    'q' => $search,
+    'status' => $statusFilter,
 ], static fn ($value): bool => $value !== '');
 $exportSuffix = $query ? '?' . http_build_query($query) : '';
+$firstRow = $total ? (($page - 1) * $perPage + 1) : 0;
+$lastRow = min($total, $page * $perPage);
+$filtersActive = $search !== '' || $statusFilter !== '';
+$pageUrl = static function (int $target) use ($search, $statusFilter, $perPage): string {
+    return '/admin/comenzi?' . http_build_query(array_filter([
+        'q' => $search,
+        'status' => $statusFilter,
+        'per_page' => $perPage,
+        'page' => $target,
+    ], static fn ($value): bool => $value !== ''));
+};
+$visiblePages = [1, $pages];
+for ($candidate = max(1, $page - 2); $candidate <= min($pages, $page + 2); $candidate++) $visiblePages[] = $candidate;
+$visiblePages = array_values(array_unique($visiblePages));
+sort($visiblePages);
 ?>
 
 <div class="admin-orders-page">
@@ -31,6 +48,7 @@ $exportSuffix = $query ? '?' . http_build_query($query) : '';
         <div>
             <span>OPERAȚIUNI</span>
             <h1>Comenzi</h1>
+            <p>Găsește rapid o comandă și urmărește plata, pregătirea și livrarea.</p>
         </div>
         <nav aria-label="Exportă comenzile">
             <a class="admin-orders-export secondary" href="/admin/comenzi/export/csv<?= e($exportSuffix) ?>">Descarcă CSV</a>
@@ -55,8 +73,14 @@ $exportSuffix = $query ? '?' . http_build_query($query) : '';
                 </select>
             </label>
             <button type="submit">Filtrează</button>
+            <input type="hidden" name="per_page" value="<?= (int) $perPage ?>">
             <?php if ($query): ?><a class="admin-orders-reset" href="/admin/comenzi" aria-label="Șterge filtrele" title="Șterge filtrele">×</a><?php endif ?>
         </form>
+
+        <div class="admin-orders-resultbar">
+            <p><strong><?= (int) $total ?></strong> <?= $total === 1 ? 'comandă găsită' : 'comenzi găsite' ?><?php if ($search !== ''): ?> pentru „<?= e($search) ?>”<?php endif ?></p>
+            <?php if ($filtersActive): ?><a href="/admin/comenzi?per_page=<?= (int) $perPage ?>">Resetează filtrele <span aria-hidden="true">×</span></a><?php else: ?><span>Apasă pe orice rând pentru a deschide comanda.</span><?php endif ?>
+        </div>
 
         <?php if ($orders): ?>
             <div class="admin-orders-table-wrap">
@@ -93,7 +117,8 @@ $exportSuffix = $query ? '?' . http_build_query($query) : '';
                                 </td>
                                 <td data-label="Client">
                                     <div class="admin-order-client">
-                                        <strong><?= e($order['email']) ?></strong>
+                                        <strong><?= e(trim((string) $order['first_name'] . ' ' . (string) $order['last_name']) ?: 'Client fără nume') ?></strong>
+                                        <small><?= e($order['email']) ?></small>
                                         <small><?= e($order['phone']) ?></small>
                                     </div>
                                 </td>
@@ -115,17 +140,13 @@ $exportSuffix = $query ? '?' . http_build_query($query) : '';
                                 <td data-label="Status">
                                     <span class="admin-order-badge order-status status-<?= e($status) ?>"><?= e($statusLabels[$status] ?? $status) ?></span>
                                 </td>
-                                <td data-label="Data"><time datetime="<?= e($order['created_at']) ?>"><?= date('d.m.Y H:i', strtotime($order['created_at'])) ?></time></td>
-                                <td data-label="Total"><strong class="admin-order-total"><?= money($order['total']) ?></strong></td>
+                                <td data-label="Data"><time datetime="<?= e($order['created_at']) ?>"><strong><?= date('d.m.Y', strtotime($order['created_at'])) ?></strong><small><?= date('H:i', strtotime($order['created_at'])) ?></small></time></td>
+                                <td data-label="Total"><span class="admin-order-total-wrap"><strong class="admin-order-total"><?= money($order['total']) ?></strong><i aria-hidden="true">›</i></span></td>
                             </tr>
                         <?php endforeach ?>
                     </tbody>
                 </table>
             </div>
-            <footer class="admin-orders-footer">
-                <span><?= count($orders) ?> <?= count($orders) === 1 ? 'comandă afișată' : 'comenzi afișate' ?></span>
-                <small>Apasă pe orice rând pentru detaliile comenzii.</small>
-            </footer>
         <?php else: ?>
             <div class="admin-orders-empty">
                 <span><?= icon('search') ?></span>
@@ -134,5 +155,23 @@ $exportSuffix = $query ? '?' . http_build_query($query) : '';
                 <a href="/admin/comenzi">Șterge filtrele</a>
             </div>
         <?php endif ?>
+
+        <footer class="admin-orders-pagination">
+            <form method="get" action="/admin/comenzi">
+                <input type="hidden" name="q" value="<?= e($search) ?>">
+                <input type="hidden" name="status" value="<?= e($statusFilter) ?>">
+                <label><span>Rânduri pe pagină</span><select name="per_page" data-orders-page-size><?php foreach ([10, 20, 50, 100] as $size): ?><option value="<?= $size ?>" <?= $perPage === $size ? 'selected' : '' ?>><?= $size ?></option><?php endforeach ?></select></label>
+            </form>
+            <p><?= $firstRow ?>–<?= $lastRow ?> din <?= (int) $total ?></p>
+            <nav aria-label="Paginare comenzi">
+                <a class="admin-order-page-arrow <?= $page <= 1 ? 'disabled' : '' ?>" href="<?= $page <= 1 ? '#' : e($pageUrl($page - 1)) ?>" aria-label="Pagina anterioară"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg></a>
+                <?php $previousVisible = 0; foreach ($visiblePages as $visiblePage): ?>
+                    <?php if ($previousVisible && $visiblePage > $previousVisible + 1): ?><span class="admin-order-page-gap">…</span><?php endif ?>
+                    <?php if ($visiblePage === $page): ?><span class="admin-order-page-number active" aria-current="page"><?= $visiblePage ?></span><?php else: ?><a class="admin-order-page-number" href="<?= e($pageUrl($visiblePage)) ?>"><?= $visiblePage ?></a><?php endif ?>
+                    <?php $previousVisible = $visiblePage; ?>
+                <?php endforeach ?>
+                <a class="admin-order-page-arrow <?= $page >= $pages ? 'disabled' : '' ?>" href="<?= $page >= $pages ? '#' : e($pageUrl($page + 1)) ?>" aria-label="Pagina următoare"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></a>
+            </nav>
+        </footer>
     </section>
 </div>

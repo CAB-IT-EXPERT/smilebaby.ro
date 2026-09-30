@@ -11,6 +11,7 @@ final class Request
         public readonly array $body,
         public readonly array $files,
         public readonly array $server,
+        public readonly string $rawBody = '',
         public array $params = []
     ) {}
 
@@ -18,15 +19,16 @@ final class Request
     {
         $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
         $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+        $rawBody = (string) file_get_contents('php://input');
         $body = $_POST;
         if (str_contains(strtolower((string) ($_SERVER['CONTENT_TYPE'] ?? '')), 'application/json')) {
-            $decoded = json_decode((string) file_get_contents('php://input'), true);
+            $decoded = json_decode($rawBody, true);
             if (is_array($decoded)) $body = $decoded;
         }
         if ($method === 'POST' && isset($body['_method'])) {
             $method = strtoupper((string) $body['_method']);
         }
-        return new self($method, '/' . trim(rawurldecode($uri), '/'), $_GET, $body, $_FILES, $_SERVER);
+        return new self($method, '/' . trim(rawurldecode($uri), '/'), $_GET, $body, $_FILES, $_SERVER, $rawBody);
     }
 
     public function input(string $key, mixed $default = null): mixed

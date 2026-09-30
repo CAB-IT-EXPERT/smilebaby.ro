@@ -1,5 +1,6 @@
 <?php
 use App\Core\Session;
+use App\Core\Database;
 use App\Services\CartService;
 $meta = $meta ?? [];
 $title = $meta['title'] ?? 'SmileBaby';
@@ -8,6 +9,7 @@ $cartCount = (new CartService())->count();
 $wishlistCount = count(Session::get('wishlist', []));
 $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $isShopPath = in_array($currentPath, ['/magazin', '/colectii'], true) || str_starts_with($currentPath, '/categorie/') || str_starts_with($currentPath, '/produs/');
+$hasPublishedPosts = Database::available() && (bool) Database::connection()->query('SELECT EXISTS(SELECT 1 FROM posts WHERE status="published" LIMIT 1)')->fetchColumn();
 $announcementEnabled = filter_var(setting('announcement_enabled', '1'), FILTER_VALIDATE_BOOL);
 $shippingEnabled = filter_var(setting('shipping_enabled', '1'), FILTER_VALIDATE_BOOL);
 $freeShippingThreshold = max(0, (float) setting('free_shipping_threshold', 0));
@@ -39,6 +41,9 @@ $organizationSchema = [
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light only">
+    <meta name="supported-color-schemes" content="light">
+    <meta name="theme-color" content="#fcfaf7">
     <title><?= e($title) ?></title>
     <meta name="description" content="<?= e($description) ?>">
     <meta name="robots" content="<?= e($meta['robots'] ?? 'index,follow') ?>">
@@ -70,7 +75,10 @@ $organizationSchema = [
     <div class="header-inner shell">
         <button class="icon-button mobile-menu-button" type="button" aria-label="Deschide meniul" aria-controls="mobile-menu" aria-expanded="false" data-menu-toggle><?= icon('menu') ?></button>
         <nav class="desktop-nav" aria-label="Navigare principală">
-            <a class="<?= $currentPath === '/' ? 'nav-pill' : '' ?>" href="/"<?= $currentPath === '/' ? ' aria-current="page"' : '' ?>>Acasă</a><a class="<?= $currentPath === '/despre-noi' ? 'nav-pill' : '' ?>" href="/despre-noi"<?= $currentPath === '/despre-noi' ? ' aria-current="page"' : '' ?>>Despre noi</a><a class="<?= $isShopPath ? 'nav-pill' : '' ?>" href="/magazin"<?= $isShopPath ? ' aria-current="page"' : '' ?>>Magazin</a><a class="<?= str_starts_with($currentPath, '/blog') ? 'nav-pill' : '' ?>" href="/blog"<?= str_starts_with($currentPath, '/blog') ? ' aria-current="page"' : '' ?>>Blog</a>
+            <a class="<?= $currentPath === '/' ? 'nav-pill' : '' ?>" href="/"<?= $currentPath === '/' ? ' aria-current="page"' : '' ?>><span class="nav-link-icon"><?= icon('home') ?></span><span>Acasă</span></a>
+            <a class="<?= $currentPath === '/despre-noi' ? 'nav-pill' : '' ?>" href="/despre-noi"<?= $currentPath === '/despre-noi' ? ' aria-current="page"' : '' ?>><span class="nav-link-icon"><?= icon('heart') ?></span><span>Despre noi</span></a>
+            <a class="<?= $isShopPath ? 'nav-pill' : '' ?>" href="/magazin"<?= $isShopPath ? ' aria-current="page"' : '' ?>><span class="nav-link-icon"><?= icon('gift') ?></span><span>Magazin</span></a>
+            <?php if ($hasPublishedPosts): ?><a class="<?= str_starts_with($currentPath, '/blog') ? 'nav-pill' : '' ?>" href="/blog"<?= str_starts_with($currentPath, '/blog') ? ' aria-current="page"' : '' ?>><span class="nav-link-icon"><?= icon('leaf') ?></span><span>Blog</span></a><?php endif ?>
         </nav>
         <a class="brand" href="/" aria-label="SmileBaby — pagina principală"><img src="<?= e(setting('logo', asset('images/logo-smilebaby.png'))) ?>" alt="SmileBaby"></a>
         <nav class="header-actions" aria-label="Acțiuni cont">
@@ -84,7 +92,7 @@ $organizationSchema = [
 <div class="mobile-menu-layer" id="mobile-menu" hidden data-mobile-menu-layer>
     <nav class="mobile-menu" aria-label="Navigare mobilă">
         <a class="mobile-account" href="<?= user()?'/cont':'/autentificare' ?>"><?=icon('user')?><span><small><?=user()?'CONTUL TĂU':'AUTENTIFICARE'?></small><strong><?=user()?'Bună, '.e(user()['first_name']):'Intră în cont'?></strong></span><?=icon('chevron')?></a>
-        <a href="/"<?= $currentPath === '/' ? ' aria-current="page"' : '' ?>><strong>Acasă</strong><?=icon('chevron')?></a><a href="/despre-noi"<?= $currentPath === '/despre-noi' ? ' aria-current="page"' : '' ?>><strong>Despre noi</strong><?=icon('chevron')?></a><a href="/magazin"<?= $isShopPath ? ' aria-current="page"' : '' ?>><strong>Magazin</strong><?=icon('chevron')?></a><a href="/blog"<?= str_starts_with($currentPath, '/blog') ? ' aria-current="page"' : '' ?>><strong>Atelier</strong><?=icon('chevron')?></a><a href="/contact"<?= $currentPath === '/contact' ? ' aria-current="page"' : '' ?>><strong>Contact</strong><?=icon('chevron')?></a>
+        <a href="/"<?= $currentPath === '/' ? ' aria-current="page"' : '' ?>><strong>Acasă</strong><?=icon('chevron')?></a><a href="/despre-noi"<?= $currentPath === '/despre-noi' ? ' aria-current="page"' : '' ?>><strong>Despre noi</strong><?=icon('chevron')?></a><a href="/magazin"<?= $isShopPath ? ' aria-current="page"' : '' ?>><strong>Magazin</strong><?=icon('chevron')?></a><?php if ($hasPublishedPosts): ?><a href="/blog"<?= str_starts_with($currentPath, '/blog') ? ' aria-current="page"' : '' ?>><strong>Atelier</strong><?=icon('chevron')?></a><?php endif ?><a href="/contact"<?= $currentPath === '/contact' ? ' aria-current="page"' : '' ?>><strong>Contact</strong><?=icon('chevron')?></a>
     </nav>
 </div>
 <div class="search-panel" role="dialog" aria-modal="true" aria-label="Caută produse" hidden data-search-panel>
@@ -114,7 +122,7 @@ $organizationSchema = [
     </div>
     <div class="shell footer-rule" aria-hidden="true"></div>
     <div class="shell footer-grid">
-        <div class="footer-column"><h2>Magazin</h2><a href="/magazin">Toate produsele</a><a href="/categorie/botez-fetite">Botez fetițe</a><a href="/categorie/botez-baieti">Botez băieți</a><a href="/favorite">Favorite</a></div>
+        <div class="footer-column"><h2>Magazin</h2><a href="/magazin">Toate produsele</a><a href="/categorie/botez-fetite">Botez fetițe</a><a href="/categorie/botez-baieti">Botez băieți</a><a href="/favorite">Favorite</a><?php if ($hasPublishedPosts): ?><a href="/blog">Blog</a><?php endif ?></div>
         <div class="footer-column"><h2>Ajutor</h2><a href="/despre-noi">Povestea noastră</a><a href="/urmareste-comanda">Urmărește comanda</a><a href="/livrare-si-retur">Livrare și retur</a><a href="/contact">Contact</a><a href="tel:<?= e($sitePhoneHref) ?>"><?= e($sitePhone) ?></a></div>
         <div class="footer-column footer-legal"><h2>Legal</h2><a href="/livrare-si-retur">Livrare și retur</a><a href="/termeni-si-conditii">Termeni și condiții</a><a href="/confidentialitate">Confidențialitate</a><a href="/cookies">Cookie-uri</a><button class="footer-cookie-button" type="button" data-cookie-settings>Setări cookie</button><a class="footer-anpc" href="https://anpc.ro/" target="_blank" rel="noopener" aria-label="Autoritatea Națională pentru Protecția Consumatorilor"><img src="<?= asset('images/anpc-sal.png') ?>" alt="ANPC — Soluționarea alternativă a litigiilor"></a></div>
     </div>
@@ -123,7 +131,14 @@ $organizationSchema = [
         <a class="footer-credit" href="https://cab-it.ro" target="_blank" rel="noopener" aria-label="Website realizat de CAB-IT">
             <span>Designed by</span><img src="<?= asset('images/cab-it-mark.png') ?>" alt="CAB-IT"><strong>cab-it.ro</strong>
         </a>
-        <span>Natural · Delicat · Autentic · Atemporal</span>
+        <div class="footer-payments" aria-label="Metode de plată acceptate">
+            <span class="payment-badge visa" aria-label="Visa">VISA</span>
+            <span class="payment-badge mastercard" aria-label="Mastercard"><i></i><i></i></span>
+            <span class="payment-badge google-pay" aria-label="Google Pay"><b>G</b><em>Pay</em></span>
+            <span class="payment-badge apple-pay" aria-label="Apple Pay"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.1 12.4c0-2.8 2.3-4.1 2.4-4.2-1.3-1.9-3.4-2.1-4.1-2.1-1.7-.2-3.4 1-4.3 1s-2.2-1-3.7-.9c-1.9 0-3.7 1.1-4.7 2.8-2 3.5-.5 8.7 1.4 11.5.9 1.4 2.1 3 3.6 2.9 1.4-.1 2-1 3.7-1s2.2 1 3.7 1c1.5 0 2.5-1.4 3.4-2.8 1.1-1.6 1.5-3.1 1.5-3.2-.1 0-2.9-1.1-2.9-5m-2.8-8.1c.8-1 1.3-2.3 1.2-3.6-1.1.1-2.5.8-3.3 1.7-.7.8-1.3 2.2-1.2 3.5 1.3.1 2.5-.6 3.3-1.6"/></svg><em>Pay</em></span>
+            <span class="payment-badge revolut-pay" aria-label="Revolut Pay"><b>Revolut</b><em>Pay</em></span>
+            <span class="payment-badge stripe" aria-label="Stripe">stripe</span>
+        </div>
     </div>
 </footer>
 <div class="cookie-banner" data-cookie-banner hidden>
@@ -137,6 +152,7 @@ $organizationSchema = [
 <script src="<?= asset('js/cart.js') ?>" defer></script>
 <script src="<?= asset('js/product-customization.js') ?>" defer></script>
 <script src="<?= asset('js/product-addons.js') ?>" defer></script>
+<script src="<?= asset('js/product-variants.js') ?>" defer></script>
 <script src="<?= asset('js/product-price.js') ?>" defer></script>
 <script src="<?= asset('js/product-review.js') ?>" defer></script>
 <script src="<?= asset('js/wishlist.js') ?>" defer></script>

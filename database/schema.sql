@@ -95,11 +95,17 @@ CREATE TABLE IF NOT EXISTS products (
     meta_description VARCHAR(320) NULL,
     canonical_url VARCHAR(500) NULL,
     indexable TINYINT(1) NOT NULL DEFAULT 1,
+    stripe_product_id VARCHAR(100) NULL,
+    stripe_price_id VARCHAR(100) NULL,
+    stripe_price_amount INT NULL,
+    stripe_synced_at DATETIME NULL,
+    stripe_sync_error VARCHAR(500) NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FULLTEXT INDEX ft_products (name, sku, short_description),
     INDEX idx_products_status (status, featured, featured_order),
-    INDEX idx_products_stock (manage_stock, stock_status, stock_quantity)
+    INDEX idx_products_stock (manage_stock, stock_status, stock_quantity),
+    UNIQUE KEY uq_products_stripe_product (stripe_product_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS product_categories (

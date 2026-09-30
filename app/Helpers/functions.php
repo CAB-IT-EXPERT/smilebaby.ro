@@ -44,11 +44,67 @@ function slugify(string $value): string {
     $value = preg_replace('/[^a-zA-Z0-9]+/', '-', $value);
     return trim(mb_strtolower((string) $value), '-');
 }
+function sanitize_rich_html(string $html): string {
+    $html = trim($html);
+    if ($html === '') return '';
+
+    $allowed = ['p','br','strong','b','em','i','u','h2','h3','h4','ul','ol','li','blockquote','a'];
+    if (!class_exists(DOMDocument::class)) {
+        $html = strip_tags($html, '<p><br><strong><b><em><i><u><h2><h3><h4><ul><ol><li><blockquote><a>');
+        return preg_replace('/\s+on[a-z]+\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]+)/iu', '', $html) ?? '';
+    }
+
+    $dom = new DOMDocument('1.0', 'UTF-8');
+    $previous = libxml_use_internal_errors(true);
+    $dom->loadHTML('<?xml encoding="utf-8" ?><div id="rich-root">' . $html . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+    libxml_clear_errors();
+    libxml_use_internal_errors($previous);
+    $root = $dom->getElementById('rich-root');
+    if (!$root) return '';
+
+    $clean = function (DOMNode $node) use (&$clean, $allowed): void {
+        foreach (iterator_to_array($node->childNodes) as $child) {
+            if (!$child instanceof DOMElement) continue;
+            $tag = strtolower($child->tagName);
+            if (in_array($tag, ['script','style','iframe','object','embed','svg','math'], true)) {
+                $child->parentNode?->removeChild($child);
+                continue;
+            }
+            if (!in_array($tag, $allowed, true)) {
+                $parent = $child->parentNode;
+                if (!$parent) continue;
+                while ($child->firstChild) $parent->insertBefore($child->firstChild, $child);
+                $parent->removeChild($child);
+                $clean($parent);
+                continue;
+            }
+            foreach (iterator_to_array($child->attributes) as $attribute) {
+                if ($tag !== 'a' || !in_array(strtolower($attribute->name), ['href','title','target','rel'], true)) {
+                    $child->removeAttribute($attribute->name);
+                }
+            }
+            if ($tag === 'a') {
+                $href = trim($child->getAttribute('href'));
+                if ($href === '' || !preg_match('#^(?:https?://|mailto:|tel:|/|\#)#i', $href)) $child->removeAttribute('href');
+                if ($child->getAttribute('target') === '_blank') $child->setAttribute('rel', 'noopener noreferrer');
+                else { $child->removeAttribute('target'); $child->removeAttribute('rel'); }
+            }
+            $clean($child);
+        }
+    };
+    $clean($root);
+
+    $result = '';
+    foreach ($root->childNodes as $child) $result .= $dom->saveHTML($child);
+    return trim($result);
+}
 function icon(string $name): string {
     $paths = [
         'menu' => '<path d="M4 7h16M4 12h16M4 17h16"/>',
+        'home' => '<path d="m3.5 10 8.5-7 8.5 7"/><path d="M5.5 9v11h13V9M9.5 20v-6h5v6"/>',
         'dashboard' => '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
         'close' => '<path d="m6 6 12 12M18 6 6 18"/>',
+        'edit' => '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/>',
         'search' => '<circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/>',
         'user' => '<circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/>',
         'heart' => '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z"/>',

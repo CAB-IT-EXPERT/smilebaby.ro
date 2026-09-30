@@ -103,7 +103,6 @@ $currentStage = $stageContent[$stageKeys[$currentIndex]];
                     <small><?= $status === 'shipped' ? 'LIVRAREA TA' : 'URMĂTORUL PAS' ?></small>
                     <h2><?= $status === 'shipped' ? 'Coletul este pe drum' : 'Te ținem la curent' ?></h2>
                     <p><?= $status === 'shipped' ? 'Comanda a plecat spre tine. Urmărește progresul direct din timeline.' : 'Când comanda avansează, fiecare etapă se actualizează automat aici.' ?></p>
-                    <?php if (!empty($order['tracking_url'])): ?><a href="<?= e($order['tracking_url']) ?>" target="_blank" rel="noopener">VEZI ACTUALIZAREA LIVRĂRII <?= icon('arrow') ?></a><?php endif; ?>
                 </section>
                 <section class="tracking-summary-card">
                     <div><span><?= icon('card') ?></span><small>PLATĂ</small><strong><?= e($order['payment_method_label']) ?></strong><em><?= e($paymentLabels[$order['payment_status']] ?? $order['payment_status']) ?></em></div>

@@ -56,7 +56,7 @@ function initCart() {
   let items = readLocal();
   if (items === null) items = normalize(config.cart || []);
 
-  const count = () => items.reduce((total, item) => total + item.quantity + normalizeAddons(item.addons).reduce((sum, addon) => sum + addon.quantity, 0), 0);
+  const count = () => items.reduce((total, item) => total + item.quantity + normalizeAddons(item.addons).reduce((sum, addon) => sum + addon.quantity * item.quantity, 0), 0);
   const paintCount = () => document.querySelectorAll('[data-cart-count]').forEach(badge => {
     badge.textContent = String(count());
     badge.closest('[data-cart-open]')?.setAttribute('aria-label', `Coș, ${count()} produse`);
@@ -79,9 +79,19 @@ function initCart() {
     return data;
   }
 
-  if (location.pathname.startsWith('/comanda-confirmata/')) {
-    items = [];
-    saveLocal();
+  const completedOrder = document.querySelector('[data-order-completed]')?.dataset.orderCompleted || '';
+  if (completedOrder) {
+    const clearedOrderKey = `smilebaby_cart_cleared:${completedOrder}`;
+    try {
+      if (!localStorage.getItem(clearedOrderKey)) {
+        items = [];
+        localStorage.setItem(clearedOrderKey, '1');
+        saveLocal();
+      }
+    } catch {
+      items = [];
+      saveLocal();
+    }
   }
   saveLocal();
   let ready = syncCart().catch(() => null);
@@ -179,15 +189,24 @@ function initCart() {
 
   document.querySelectorAll('.cart-page-premium form[action="/cos/actualizeaza"], .cart-page-premium form[action="/cos/elimina"], .cart-page form[action="/cos/actualizeaza"], .cart-page form[action="/cos/elimina"]').forEach(form => form.addEventListener('submit', async event => {
     event.preventDefault();
+    await ready;
     const data = new FormData(form);
     const key = String(data.get('key') || '');
     const quantity = form.action.endsWith('/elimina') ? 0 : Math.max(0, Number.parseInt(data.get('quantity'), 10) || 0);
+    const previousItems = JSON.stringify(items);
     const line = items.find(item => item.cart_key === key);
     items = items.filter(item => item.cart_key !== key);
     if (quantity > 0 && line) items.push({ ...line, quantity: Math.min(99, quantity) });
     saveLocal();
-    await syncCart().catch(() => null);
-    location.reload();
+    try {
+      await syncCart();
+      location.reload();
+    } catch (error) {
+      items = normalize(JSON.parse(previousItems));
+      saveLocal();
+      window.alert(String(error?.message || 'Cantitatea nu a putut fi actualizată. Verifică stocul configurației.'));
+      location.reload();
+    }
   }));
 
   document.querySelectorAll('form[action="/cos/personalizare"]').forEach(form => form.addEventListener('submit', async event => {

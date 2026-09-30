@@ -11,7 +11,7 @@ email_verified_at = COALESCE(email_verified_at, NOW());
 INSERT INTO payment_methods (`key`, name, description, enabled, sort_order, fee_type, fee_value, instructions, settings_json)
 VALUES
 ('cash_on_delivery', 'Plată ramburs', 'Plătești curierului la primirea coletului.', 1, 1, 'none', 0, '', '{}'),
-('online_card', 'Plată online cu cardul', 'Plătește securizat online cu cardul.', 0, 2, 'none', 0, '', '{"provider":"netopia","test_mode":true}')
+('online_card', 'Plată online cu cardul', 'Card, Apple Pay, Google Pay sau Revolut Pay, procesate securizat prin Stripe.', 1, 2, 'none', 0, '', '{"provider":"stripe","test_mode":true}')
 ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description);
 
 INSERT INTO settings (`key`, value, type, group_name) VALUES

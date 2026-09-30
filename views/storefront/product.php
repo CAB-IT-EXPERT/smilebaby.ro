@@ -21,7 +21,38 @@ $customizationPrice=max(0,(float)($product['customization_price']??0));
         </div>
     </div>
     <div class="product-summary"><?php if(!empty($product['categories'][0])):?><a class="eyebrow" href="/categorie/<?=e($product['categories'][0]['slug'])?>"><?=e($product['categories'][0]['name'])?></a><?php endif?><h1><?=e($product['name'])?></h1><?php if((int)($product['review_count']??0)>0):?><div class="rating"><span><?=str_repeat('★',(int)round($product['rating'])).str_repeat('☆',5-(int)round($product['rating']))?></span><a href="#recenzii"><?= (int)$product['review_count'] ?> <?= (int)$product['review_count']===1?'recenzie':'recenzii' ?></a></div><?php endif?><div class="product-page-price" aria-live="polite"><del data-product-price-regular <?=$baseRegularPrice>$baseCurrentPrice?'':'hidden'?>><?=money($baseRegularPrice)?></del><strong data-product-price-current><?=money($baseCurrentPrice)?></strong></div><div class="product-short"><?= $product['short_description'] ?: '<p>Un produs ales cu grijă pentru cele mai frumoase începuturi.</p>' ?></div>
-        <?php if($product['variants']):?><label>Alege varianta<select form="add-to-cart" name="variant_id" required data-product-variant><option value="">Selectează</option><?php foreach($product['variants'] as $variant):$variantAvailable=$variant['stock_quantity']===null||$variant['stock_status']!=='out_of_stock';$variantRegular=(float)($variant['regular_price']?:$baseRegularPrice);$variantCurrent=(float)($variant['sale_price']?:$variant['regular_price']?:$baseCurrentPrice);?><option value="<?=$variant['id']?>" data-price="<?=e((string)$variantCurrent)?>" data-regular-price="<?=e((string)$variantRegular)?>" <?=!$variantAvailable?'disabled':''?>><?=e($variant['variant_name']?:$variant['sku'])?> — <?=money($variantCurrent)?><?=!$variantAvailable?' · indisponibil':''?></option><?php endforeach?></select></label><?php endif?>
+        <?php if($product['variants']): ?>
+            <div class="product-variant-field">
+                <div class="product-variant-label"><span>Alege varianta</span><small>Selectează modelul potrivit pentru tine</small></div>
+                <div class="product-variant-picker" data-product-variant-picker>
+                    <select class="product-variant-native" form="add-to-cart" name="variant_id" required data-product-variant aria-label="Alege varianta">
+                        <option value="">Selectează varianta</option>
+                        <?php foreach($product['variants'] as $variant):$variantAvailable=$variant['stock_quantity']===null||$variant['stock_status']!=='out_of_stock';$variantRegular=(float)($variant['regular_price']?:$baseRegularPrice);$variantCurrent=(float)($variant['sale_price']?:$variant['regular_price']?:$baseCurrentPrice); ?>
+                            <option value="<?=$variant['id']?>" data-price="<?=e((string)$variantCurrent)?>" data-regular-price="<?=e((string)$variantRegular)?>" <?=!$variantAvailable?'disabled':''?>><?=e($variant['variant_name']?:$variant['sku'])?> — <?=money($variantCurrent)?><?=!$variantAvailable?' · indisponibil':''?></option>
+                        <?php endforeach ?>
+                    </select>
+                    <button class="product-variant-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" data-product-variant-trigger>
+                        <span class="product-variant-symbol" aria-hidden="true"><i></i><i></i></span>
+                        <span class="product-variant-current"><small>VARIANTA PRODUSULUI</small><strong data-product-variant-name>Selectează varianta</strong></span>
+                        <span class="product-variant-current-price" data-product-variant-price>Alege</span>
+                        <span class="product-variant-chevron" aria-hidden="true"></span>
+                    </button>
+                    <div class="product-variant-menu" role="listbox" aria-label="Variante disponibile" data-product-variant-menu hidden>
+                        <header><span>VARIANTE DISPONIBILE</span><small>Alege o singură opțiune</small></header>
+                        <div class="product-variant-options">
+                            <?php foreach($product['variants'] as $variant):$variantAvailable=$variant['stock_quantity']===null||$variant['stock_status']!=='out_of_stock';$variantRegular=(float)($variant['regular_price']?:$baseRegularPrice);$variantCurrent=(float)($variant['sale_price']?:$variant['regular_price']?:$baseCurrentPrice);$variantName=(string)($variant['variant_name']?:$variant['sku']); ?>
+                                <button type="button" role="option" id="product-variant-option-<?= (int)$variant['id'] ?>" aria-selected="false" data-product-variant-option data-value="<?= (int)$variant['id'] ?>" data-name="<?=e($variantName)?>" data-price-label="<?=e(money($variantCurrent))?>" <?=!$variantAvailable?'disabled aria-disabled="true"':''?>>
+                                    <span class="product-variant-option-check" aria-hidden="true">✓</span>
+                                    <span class="product-variant-option-copy"><strong><?=e($variantName)?></strong><small class="<?= $variantAvailable?'is-available':'is-unavailable' ?>"><?= $variantAvailable?'Disponibilă':'Indisponibilă' ?></small></span>
+                                    <span class="product-variant-option-price"><?php if($variantRegular>$variantCurrent):?><del><?=money($variantRegular)?></del><?php endif?><b><?=money($variantCurrent)?></b></span>
+                                </button>
+                            <?php endforeach ?>
+                        </div>
+                    </div>
+                    <p class="product-variant-error" data-product-variant-error hidden>Te rugăm să alegi o variantă înainte de a adăuga produsul în coș.</p>
+                </div>
+            </div>
+        <?php endif ?>
         <?php if(!empty($product['is_customizable']) && !empty($product['customization_fields'])): ?>
             <section class="storefront-customization" data-storefront-customization>
                 <label class="storefront-customization-toggle">
@@ -34,6 +65,7 @@ $customizationPrice=max(0,(float)($product['customization_price']??0));
                         <label><?= e($field['label']) ?><?= !empty($field['is_required']) ? ' *' : '' ?><input form="add-to-cart" type="<?= $field['field_type'] === 'date' ? 'date' : 'text' ?>" name="customization[<?= (int)$field['id'] ?>]" value="" placeholder="<?= e($field['placeholder'] ?? '') ?>" maxlength="250" data-personalization-input data-personalization-required="<?= !empty($field['is_required']) ? '1' : '0' ?>" disabled></label>
                     <?php endforeach ?>
                     <p><span>✓</span> Verificăm toate detaliile înainte ca produsul să intre în coș.</p>
+                    <aside class="storefront-customization-policy"><span aria-hidden="true">i</span><p><strong>Important</strong>Personalizarea intră în lucru pe bază de avans. Produsul personalizat nu poate fi returnat pentru simpla răzgândire; drepturile pentru neconformitate rămân valabile. <a href="/livrare-si-retur" target="_blank">Detalii despre retur</a></p></aside>
                 </div>
             </section>
         <?php endif ?>
@@ -78,7 +110,7 @@ $customizationPrice=max(0,(float)($product['customization_price']??0));
 </article>
 <section class="product-details shell">
     <div class="tabs" role="tablist"><button class="active" data-tab="descriere">Descriere</button><button data-tab="specificatii">Specificații</button><button data-tab="recenzii">Recenzii</button></div>
-    <div class="tab-panel active" id="descriere"><?= $product['description'] ?: '<p>Detaliile produsului vor fi completate în curând.</p>' ?></div>
+    <div class="tab-panel active" id="descriere"><?= $product['description'] ? sanitize_rich_html((string) $product['description']) : '<p>Detaliile produsului vor fi completate în curând.</p>' ?></div>
     <div class="tab-panel" id="specificatii"><dl><dt>Cod produs</dt><dd><?=e($product['sku']?:'—')?></dd><dt>Brand</dt><dd><?=e($product['brand']?:'SmileBaby')?></dd><dt>Disponibilitate</dt><dd><?=$inStock?'În stoc':'Indisponibil'?></dd></dl></div>
     <div class="tab-panel" id="recenzii">
         <header class="product-reviews-heading">

@@ -1,0 +1,374 @@
+<?php
+
+namespace App\Controllers;
+
+use App\Core\Auth;
+use App\Core\Database;
+use App\Core\Request;
+use App\Core\Response;
+use App\Core\Session;
+use App\Core\Validator;
+use App\Core\View;
+use App\Models\CategoryRepository;
+use App\Models\ProductRepository;
+use App\Services\CartService;
+use App\Services\OrderService;
+use App\Services\PaymentService;
+use App\Services\SearchService;
+
+final class StorefrontController
+{
+    public function home(Request $request): void
+    {
+        $products = (new ProductRepository())->featured(16);
+        $posts = [];
+        if (Database::available()) $posts = Database::connection()->query('SELECT * FROM posts WHERE status="published" ORDER BY published_at DESC LIMIT 3')->fetchAll();
+        View::render('storefront/home', ['categories' => (new CategoryRepository())->homepage(), 'products' => $products, 'posts' => $posts, 'meta' => ['title' => setting('seo_title', 'SmileBaby — Începuturi delicate pentru povești mari'), 'description' => setting('seo_description', '')]]);
+    }
+
+    public function shop(Request $request): void
+    {
+        $page = max(1, (int) ($request->query['page'] ?? 1));
+        $filters = ['q' => trim((string) ($request->query['q'] ?? '')), 'category' => trim((string) ($request->query['category'] ?? '')), 'min' => $request->query['min'] ?? '', 'max' => $request->query['max'] ?? '', 'stock' => $request->query['stock'] ?? '', 'sort' => $request->query['sort'] ?? ''];
+        $result = (new ProductRepository())->list($filters, $page, 16);
+        View::render('storefront/shop', ['products' => $result['items'], 'total' => $result['total'], 'page' => $page, 'pages' => max(1, (int) ceil($result['total'] / 16)), 'filters' => $filters, 'categories' => (new CategoryRepository())->all(), 'meta' => ['title' => 'Magazin — SmileBaby', 'description' => 'Descoperă colecțiile SmileBaby.']]);
+    }
+
+    public function category(Request $request): void
+    {
+        $slug = $request->params['slug'];
+        $category = (new CategoryRepository())->findBySlug($slug);
+        if (!$category) { http_response_code(404); View::render('errors/404'); return; }
+        $page = max(1, (int) ($request->query['page'] ?? 1));
+        $filters = ['q' => trim((string) ($request->query['q'] ?? '')), 'category' => $slug, 'min' => $request->query['min'] ?? '', 'max' => $request->query['max'] ?? '', 'stock' => $request->query['stock'] ?? '', 'sort' => $request->query['sort'] ?? ''];
+        $result = (new ProductRepository())->list($filters, $page, 16);
+        View::render('storefront/category', ['category' => $category, 'products' => $result['items'], 'total' => $result['total'], 'page' => $page, 'pages' => max(1, (int) ceil($result['total'] / 16)), 'filters' => $filters, 'meta' => ['title' => ($category['meta_title'] ?? null) ?: $category['name'] . ' — SmileBaby', 'description' => ($category['meta_description'] ?? null) ?: strip_tags((string) ($category['short_description'] ?? ''))]]);
+    }
+
+    public function product(Request $request): void
+    {
+        $product = (new ProductRepository())->findBySlug($request->params['slug']);
+        if (!$product) {
+            if (Database::available()) {
+                $path = '/produs/' . $request->params['slug'];
+                $stmt = Database::connection()->prepare('SELECT new_path,status_code FROM redirects WHERE old_path=? LIMIT 1'); $stmt->execute([$path]); $redirect = $stmt->fetch();
+                if ($redirect) Response::redirect($redirect['new_path'], (int) $redirect['status_code']);
+            }
+            http_response_code(404); View::render('errors/404'); return;
+        }
+        $related = (new ProductRepository())->list(['category' => $product['categories'][0]['slug'] ?? ''], 1, 13)['items'];
+        $related = array_slice(array_values(array_filter($related, fn ($p) => $p['id'] !== $product['id'])), 0, 12);
+        View::render('storefront/product', ['product' => $product, 'related' => $related, 'meta' => ['title' => ($product['meta_title'] ?? null) ?: $product['name'] . ' — SmileBaby', 'description' => ($product['meta_description'] ?? null) ?: mb_substr(strip_tags((string) ($product['short_description'] ?: $product['description'])), 0, 160), 'canonical' => $product['canonical_url'] ?? null, 'image' => upload_url($product['image_path'] ?? null)]]);
+    }
+
+    public function cart(Request $request): void { View::render('storefront/cart', ['items' => (new CartService())->items(), 'meta' => ['title' => 'Coșul tău — SmileBaby', 'robots' => 'noindex,nofollow']]); }
+    public function cartDrawer(Request $request): void { $items=(new CartService())->items(); require BASE_PATH.'/views/components/cart-drawer.php'; }
+    public function addCart(Request $request): void
+    {
+        try {
+            (new CartService())->add(
+                (int) $request->input('product_id'),
+                max(1, (int) $request->input('quantity', 1)),
+                $request->input('variant_id') ? (int) $request->input('variant_id') : null,
+                (bool) $request->input('personalization_enabled'),
+                is_array($request->input('customization')) ? $request->input('customization') : [],
+                is_array($request->input('addons')) ? $request->input('addons') : []
+            );
+        } catch (\RuntimeException $error) {
+            if ($request->wantsJson()) { Response::json(['ok' => false, 'message' => $error->getMessage()], 422); return; }
+            Session::flash('error', $error->getMessage());
+            Response::redirect($request->server['HTTP_REFERER'] ?? '/cos');
+        }
+        Session::flash('success', 'Produsul a fost adăugat în coș.');
+        if ($request->wantsJson()) Response::json(['ok' => true, 'count' => (new CartService())->count()]);
+        Response::redirect('/cos');
+    }
+    public function updateCart(Request $request): void { (new CartService())->update((string) $request->input('key'), (int) $request->input('quantity')); Response::redirect('/cos'); }
+    public function updateCartCustomization(Request $request): void
+    {
+        try {
+            (new CartService())->updateCustomization(
+                (string) $request->input('key'),
+                (bool) $request->input('personalization_enabled'),
+                is_array($request->input('customization')) ? $request->input('customization') : []
+            );
+            Session::flash('success', $request->input('personalization_enabled') ? 'Personalizarea a fost salvată.' : 'Personalizarea a fost eliminată.');
+        } catch (\RuntimeException $error) {
+            Session::flash('error', $error->getMessage());
+        }
+        Response::redirect('/cos');
+    }
+    public function removeCart(Request $request): void { (new CartService())->remove((string) $request->input('key')); Response::redirect('/cos'); }
+    public function syncCart(Request $request): void
+    {
+        $cart = new CartService();
+        try {
+            $cart->replace(is_array($request->input('items')) ? $request->input('items') : []);
+            Response::json(['ok' => true, 'items' => $cart->snapshot(), 'count' => $cart->count()]);
+        } catch (\RuntimeException $error) {
+            Response::json(['ok' => false, 'message' => $error->getMessage()], 422);
+        }
+    }
+
+    public function checkout(Request $request): void
+    {
+        $cart = new CartService(); $items = $cart->items();
+        if (!$items) { Session::flash('error', 'Coșul tău este gol.'); Response::redirect('/cos'); }
+        $subtotal = $cart->subtotal();
+        $shippingEnabled = filter_var(setting('shipping_enabled', '1'), FILTER_VALIDATE_BOOL);
+        $threshold = (float) setting('free_shipping_threshold', 300);
+        $shipping = !$shippingEnabled || ($threshold > 0 && $subtotal >= $threshold) ? 0 : (float) setting('standard_shipping_cost', 20);
+        View::render('storefront/checkout', ['items' => $items, 'subtotal' => $subtotal, 'shipping' => $shipping, 'paymentMethods' => (new PaymentService())->active($subtotal), 'meta' => ['title' => 'Finalizare comandă — SmileBaby', 'robots' => 'noindex,nofollow']]);
+    }
+
+    public function placeOrder(Request $request): void
+    {
+        $customerType = (string) $request->input('customer_type') === 'company' ? 'company' : 'individual';
+        $fields = ['first_name' => 'Prenumele', 'last_name' => 'Numele', 'email' => 'Emailul', 'phone' => 'Telefonul', 'county' => 'Județul', 'city' => 'Localitatea', 'address' => 'Adresa', 'payment_method' => 'Metoda de plată'];
+        if ($customerType === 'company') {
+            $fields += ['company_name' => 'Denumirea firmei', 'company_vat_id' => 'CUI/CIF', 'company_registration_number' => 'Numărul de la Registrul Comerțului', 'company_address' => 'Adresa sediului social'];
+        }
+        $errors = Validator::required($request->body, $fields);
+        if (!Validator::email((string) $request->input('email'))) $errors['email'] = 'Adresa de email nu este validă.';
+        if (!$request->input('terms')) $errors['terms'] = 'Trebuie să accepți termenii magazinului.';
+        if ($errors) { Session::put('_old', $request->body); Session::flash('errors', $errors); Response::redirect('/checkout'); }
+        try {
+            $order = (new OrderService())->create([
+                'first_name' => trim((string) $request->input('first_name')), 'last_name' => trim((string) $request->input('last_name')), 'email' => trim((string) $request->input('email')), 'phone' => trim((string) $request->input('phone')), 'county' => trim((string) $request->input('county')), 'city' => trim((string) $request->input('city')), 'address' => trim((string) $request->input('address')), 'postcode' => trim((string) $request->input('postcode')), 'notes' => trim((string) $request->input('notes')),
+                'customer_type' => $customerType, 'company_name' => trim((string) $request->input('company_name')), 'company_vat_id' => trim((string) $request->input('company_vat_id')), 'company_registration_number' => trim((string) $request->input('company_registration_number')), 'company_address' => trim((string) $request->input('company_address')),
+            ], (string) $request->input('payment_method'));
+            Session::put('last_order', ['number' => $order['order_number'], 'email' => $order['email']]);
+            if ($order['gateway']['redirect_url']) Response::redirect($order['gateway']['redirect_url']);
+            Response::redirect('/comanda-confirmata/' . urlencode($order['order_number']));
+        } catch (\Throwable $e) { Session::flash('error', $e->getMessage()); Response::redirect('/checkout'); }
+    }
+
+    public function confirmation(Request $request): void
+    {
+        $number = $request->params['number']; $order = null;
+        if (Database::available()) { $stmt = Database::connection()->prepare('SELECT * FROM orders WHERE order_number=? LIMIT 1'); $stmt->execute([$number]); $order = $stmt->fetch(); }
+        $last = Session::get('last_order');
+        if (!$order || (!$last && !Auth::isAdmin()) || ($last && $last['email'] !== $order['email'] && !Auth::isAdmin())) { http_response_code(404); View::render('errors/404'); return; }
+        View::render('storefront/confirmation', ['order' => $order, 'meta' => ['title' => 'Comandă confirmată — SmileBaby', 'robots' => 'noindex,nofollow']]);
+    }
+
+    public function paymentResult(Request $request): void
+    {
+        $number = trim((string) ($request->query['order'] ?? ''));
+        $stmt = Database::connection()->prepare('SELECT * FROM orders WHERE order_number=? LIMIT 1');
+        $stmt->execute([$number]);
+        $order = $stmt->fetch();
+        $last = Session::get('last_order');
+        if (!$order || (!$last && !Auth::isAdmin()) || ($last && $last['email'] !== $order['email'] && !Auth::isAdmin())) { http_response_code(404); View::render('errors/404'); return; }
+        View::render('storefront/payment-result', ['order' => $order, 'meta' => ['title' => 'Status plată — SmileBaby', 'robots' => 'noindex,nofollow']]);
+    }
+
+    public function retryPayment(Request $request): void
+    {
+        $number = (string) $request->params['number'];
+        $stmt = Database::connection()->prepare('SELECT * FROM orders WHERE order_number=? AND payment_method="online_card" LIMIT 1');
+        $stmt->execute([$number]);
+        $order = $stmt->fetch();
+        $last = Session::get('last_order');
+        if (!$order || $order['payment_status'] === 'paid' || (!$last && !Auth::isAdmin()) || ($last && $last['email'] !== $order['email'] && !Auth::isAdmin())) { http_response_code(404); View::render('errors/404'); return; }
+        try {
+            $methodStmt = Database::connection()->prepare('SELECT * FROM payment_methods WHERE `key`="online_card" AND enabled=1 LIMIT 1');
+            $methodStmt->execute(); $method = $methodStmt->fetch();
+            if (!$method) throw new \RuntimeException('Plata cu cardul nu este disponibilă momentan.');
+            $result = (new PaymentService())->gateway('online_card')->initializePayment($order, $method);
+            Response::redirect($result['redirect_url']);
+        } catch (\Throwable $error) { Session::flash('error', $error->getMessage()); Response::redirect('/plata/rezultat?order=' . urlencode($number)); }
+    }
+
+    public function wishlist(Request $request): void
+    {
+        $ids = Session::get('wishlist', []); $products = [];
+        foreach ($ids as $id) if ($p = (new ProductRepository())->find((int) $id)) $products[] = $p;
+        View::render('storefront/wishlist', ['products' => $products, 'meta' => ['title' => 'Favorite — SmileBaby', 'robots' => 'noindex,nofollow']]);
+    }
+
+    public function toggleWishlist(Request $request): void
+    {
+        $id = (int) $request->input('product_id'); $ids = Session::get('wishlist', []);
+        $requestedState = $request->input('active');
+        $active = $requestedState === null ? !in_array($id, $ids, true) : filter_var($requestedState, FILTER_VALIDATE_BOOL);
+        if ($active && !in_array($id, $ids, true)) $ids[] = $id;
+        if (!$active) $ids = array_values(array_diff($ids, [$id]));
+        Session::put('wishlist', $ids);
+        if (Auth::check() && Database::available()) {
+            if (in_array($id, $ids, true)) Database::connection()->prepare('INSERT IGNORE INTO favorites (user_id,product_id) VALUES (?,?)')->execute([Auth::user()['id'], $id]);
+            else Database::connection()->prepare('DELETE FROM favorites WHERE user_id=? AND product_id=?')->execute([Auth::user()['id'], $id]);
+        }
+        if ($request->wantsJson()) Response::json(['ok' => true, 'active' => in_array($id, $ids, true), 'count' => count($ids)]);
+        Response::redirect($request->server['HTTP_REFERER'] ?? '/favorite');
+    }
+
+    public function syncWishlist(Request $request): void
+    {
+        $requested = is_array($request->input('items')) ? $request->input('items') : [];
+        $ids = array_values(array_unique(array_filter(array_map('intval', array_slice($requested, 0, 200)), fn (int $id) => $id > 0)));
+        if ($ids && Database::available()) {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $stmt = Database::connection()->prepare("SELECT id FROM products WHERE status='active' AND id IN ($placeholders)");
+            $stmt->execute($ids);
+            $valid = array_map('intval', array_column($stmt->fetchAll(), 'id'));
+            $ids = array_values(array_filter($ids, fn (int $id) => in_array($id, $valid, true)));
+        } elseif (!Database::available()) {
+            $ids = [];
+        }
+        Session::put('wishlist', $ids);
+        if (Auth::check() && Database::available()) {
+            $userId = (int) Auth::user()['id'];
+            Database::transaction(function ($db) use ($userId, $ids) {
+                $db->prepare('DELETE FROM favorites WHERE user_id=?')->execute([$userId]);
+                $insert = $db->prepare('INSERT INTO favorites (user_id,product_id) VALUES (?,?)');
+                foreach ($ids as $id) $insert->execute([$userId, $id]);
+            });
+        }
+        Response::json(['ok' => true, 'items' => $ids, 'count' => count($ids)]);
+    }
+
+    public function newsletter(Request $request): void
+    {
+        $email = mb_strtolower(trim((string) $request->input('email')));
+        if (!Validator::email($email) || !$request->input('consent')) { Session::flash('error', 'Introdu o adresă validă și confirmă acordul.'); Response::redirect('/#newsletter'); }
+        Database::connection()->prepare('INSERT INTO newsletter_subscribers (email,consent,status,token) VALUES (?,1,"active",?) ON DUPLICATE KEY UPDATE consent=1,status="active",unsubscribed_at=NULL')->execute([$email, hash('sha256', $email . random_bytes(16))]);
+        Session::flash('success', 'Bine ai venit în povestea SmileBaby!'); Response::redirect('/#newsletter');
+    }
+
+    public function unsubscribe(Request $request): void { if (Database::available()) Database::connection()->prepare('UPDATE newsletter_subscribers SET status="unsubscribed",unsubscribed_at=NOW() WHERE token=?')->execute([$request->params['token']]); View::render('storefront/message', ['title' => 'Abonare oprită', 'message' => 'Nu vei mai primi noutățile noastre.']); }
+
+    public function review(Request $request): void
+    {
+        $rating = (int) $request->input('rating');
+        if ($rating < 1 || $rating > 5 || trim((string) $request->input('body')) === '' || !Validator::email((string) $request->input('email'))) { Session::flash('error', 'Completează corect toate câmpurile recenziei.'); Response::redirect($request->server['HTTP_REFERER'] ?? '/magazin'); }
+        Database::connection()->prepare('INSERT INTO reviews (product_id,user_id,author_name,email,rating,title,body,status) VALUES (?,?,?,?,?,?,?,"pending")')->execute([(int) $request->input('product_id'), Auth::user()['id'] ?? null, trim((string) $request->input('author_name')), mb_strtolower(trim((string) $request->input('email'))), $rating, trim((string) $request->input('title')), trim((string) $request->input('body'))]);
+        Session::flash('success', 'Mulțumim! Recenzia va apărea după moderare.'); Response::redirect($request->server['HTTP_REFERER'] ?? '/magazin');
+    }
+
+    public function track(Request $request): void { View::render('storefront/track', ['order' => null, 'meta' => ['title' => 'Urmărește comanda — SmileBaby', 'robots' => 'noindex,nofollow']]); }
+    public function trackSearch(Request $request): void
+    {
+        $orderNumber = trim((string) $request->input('order_number'));
+        $email = mb_strtolower(trim((string) $request->input('email')));
+        $stmt = Database::connection()->prepare('SELECT * FROM orders WHERE order_number=? AND email=? LIMIT 1');
+        $stmt->execute([$orderNumber, $email]);
+        $order = $stmt->fetch();
+        if (!$order) {
+            View::render('storefront/track', [
+                'order' => false,
+                'orderNumber' => $orderNumber,
+                'email' => $email,
+                'meta' => ['title' => 'Urmărește comanda — SmileBaby', 'robots' => 'noindex,nofollow'],
+            ]);
+            return;
+        }
+
+        Session::put('tracked_order_id', (int) $order['id']);
+        Response::redirect('/urmareste-comanda/status');
+    }
+
+    public function trackResult(Request $request): void
+    {
+        $orderId = (int) Session::get('tracked_order_id', 0);
+        if ($orderId < 1) {
+            Response::redirect('/urmareste-comanda');
+        }
+
+        $db = Database::connection();
+        $stmt = $db->prepare('SELECT * FROM orders WHERE id=? LIMIT 1');
+        $stmt->execute([$orderId]);
+        $order = $stmt->fetch();
+        if (!$order) {
+            Session::forget('tracked_order_id');
+            Response::redirect('/urmareste-comanda');
+        }
+
+        $itemsStmt = $db->prepare('SELECT * FROM order_items WHERE order_id=? ORDER BY id');
+        $itemsStmt->execute([$orderId]);
+        $historyStmt = $db->prepare('SELECT new_status,status_history.message,status_history.created_at FROM order_status_history status_history WHERE order_id=? ORDER BY created_at,id');
+        $historyStmt->execute([$orderId]);
+
+        View::render('storefront/track-result', [
+            'order' => $order,
+            'items' => $itemsStmt->fetchAll(),
+            'history' => $historyStmt->fetchAll(),
+            'meta' => [
+                'title' => 'Comanda ' . $order['order_number'] . ' — SmileBaby',
+                'robots' => 'noindex,nofollow',
+            ],
+        ]);
+    }
+
+    public function blog(Request $request): void
+    {
+        $posts = Database::available() ? Database::connection()->query('SELECT * FROM posts WHERE status="published" ORDER BY published_at DESC')->fetchAll() : [];
+        View::render('storefront/blog', ['posts' => $posts, 'meta' => ['title' => 'Din atelierul SmileBaby', 'description' => 'Povești, inspirație și ghiduri pentru începuturi frumoase.']]);
+    }
+    public function post(Request $request): void
+    {
+        $stmt = Database::connection()->prepare('SELECT * FROM posts WHERE slug=? AND status="published" LIMIT 1'); $stmt->execute([$request->params['slug']]); $post = $stmt->fetch();
+        if (!$post) { http_response_code(404); View::render('errors/404'); return; }
+        View::render('storefront/post', ['post' => $post, 'meta' => ['title' => ($post['meta_title'] ?: $post['title']) . ' — SmileBaby', 'description' => $post['meta_description'] ?: $post['excerpt']]]);
+    }
+
+    public function about(Request $request): void
+    {
+        View::render('storefront/about', ['meta' => [
+            'title' => 'Despre noi — Povestea SmileBaby',
+            'description' => 'Descoperă atelierul SmileBaby și felul în care pregătim trusouri, lumânări și mărturii personalizate pentru botez.',
+        ]]);
+    }
+    public function page(Request $request): void
+    {
+        $page = (string) ($request->params['page'] ?? trim((string) parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH), '/'));
+        $meta = match ($page) {
+            'termeni-si-conditii' => ['title' => 'Termeni și condiții — SmileBaby', 'description' => 'Condițiile de utilizare și comandă în magazinul online SmileBaby.'],
+            'confidentialitate' => ['title' => 'Politica de confidențialitate — SmileBaby', 'description' => 'Cum colectează, folosește și protejează SmileBaby datele tale personale.'],
+            'cookies' => ['title' => 'Politica de cookies — SmileBaby', 'description' => 'Informații despre cookie-urile, stocarea locală și preferințele folosite de SmileBaby.'],
+            'livrare-si-retur' => ['title' => 'Livrare și retur — SmileBaby', 'description' => 'Termene, costuri de livrare și condițiile de retur pentru comenzile SmileBaby.'],
+            default => ['title' => 'Informații — SmileBaby', 'description' => 'Informații utile SmileBaby.'],
+        };
+        View::render('storefront/page', ['page' => $page, 'meta' => $meta]);
+    }
+    public function contact(Request $request): void { View::render('storefront/contact', ['meta' => ['title' => 'Contact — SmileBaby']]); }
+    public function contactSend(Request $request): void { $errors = Validator::required($request->body, ['name' => 'Numele', 'email' => 'Emailul', 'message' => 'Mesajul']); if ($errors) { Session::flash('errors', $errors); Response::redirect('/contact'); } Database::connection()->prepare('INSERT INTO contact_messages (name,email,phone,subject,message) VALUES (?,?,?,?,?)')->execute([trim($request->input('name')), mb_strtolower(trim($request->input('email'))), trim($request->input('phone')), trim($request->input('subject')), trim($request->input('message'))]); Session::flash('success', 'Mesajul tău a fost trimis. Îți răspundem cât mai curând.'); Response::redirect('/contact'); }
+
+    public function search(Request $request): void
+    {
+        $query=trim((string)($request->query['q']??''));$result=(new SearchService())->search($query,8);
+        Response::json(['query'=>$query,'count'=>$result['count'],'products'=>array_map(fn($p)=>['name'=>$p['name'],'url'=>'/produs/'.$p['slug'],'price'=>money($p['price']),'image'=>upload_url($p['image_path']),'category'=>$p['category_name']??'SmileBaby','sku'=>$p['sku']??null],$result['products']),'categories'=>array_map(fn($c)=>['name'=>$c['name'],'url'=>'/categorie/'.$c['slug'],'image'=>upload_url($c['image_path']??null)],$result['categories'])]);
+    }
+
+    public function sitemap(Request $request): void
+    {
+        $urls = [config('app.url') . '/', config('app.url') . '/magazin', config('app.url') . '/blog'];
+        if (Database::available()) {
+            foreach (Database::connection()->query('SELECT slug FROM products WHERE status="active" AND indexable=1')->fetchAll() as $r) $urls[] = config('app.url') . '/produs/' . $r['slug'];
+            foreach (Database::connection()->query('SELECT slug FROM categories WHERE status="active" AND indexable=1')->fetchAll() as $r) $urls[] = config('app.url') . '/categorie/' . $r['slug'];
+            foreach (Database::connection()->query('SELECT slug FROM posts WHERE status="published" AND indexable=1')->fetchAll() as $r) $urls[] = config('app.url') . '/blog/' . $r['slug'];
+        }
+        Response::xml('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . implode('', array_map(fn ($url) => '<url><loc>' . e($url) . '</loc></url>', $urls)) . '</urlset>');
+    }
+
+    public function paymentCallback(Request $request): void
+    {
+        if (!Database::available()) Response::json(['ok' => false], 503);
+        $stmt = Database::connection()->prepare('SELECT * FROM payment_methods WHERE `key`="online_card" LIMIT 1'); $stmt->execute(); $method = $stmt->fetch();
+        try {
+            if (!$method) throw new \RuntimeException('Metodă de plată inexistentă.');
+            $settings = json_decode($method['settings_json'] ?: '{}', true) ?: [];
+            $provider = trim((string) ($settings['provider'] ?? 'other'));
+            if ($provider !== (string) $request->params['provider']) throw new \RuntimeException('Provider invalid.');
+            $result = (new PaymentService())->gateway('online_card')->handleCallback($request->body, $method);
+            $eventId = (string) $result['event_id']; $orderNumber = (string) $request->input('order_id');
+            Database::transaction(function ($db) use ($eventId, $orderNumber, $result, $request, $provider) {
+                $stmt = $db->prepare('SELECT id FROM orders WHERE order_number=? FOR UPDATE'); $stmt->execute([$orderNumber]); $orderId = (int) $stmt->fetchColumn(); if (!$orderId) throw new \RuntimeException('Comandă invalidă.');
+                $insert = $db->prepare('INSERT IGNORE INTO payment_events (provider,event_id,order_id,event_type,payload_safe,processed_at) VALUES (?,?,?,?,?,NOW())'); $insert->execute([$provider, $eventId, $orderId, $result['status'], json_encode(array_diff_key($request->body, array_flip(['signature','signed_payload'])), JSON_UNESCAPED_UNICODE)]); if ($insert->rowCount() === 0) return;
+                $db->prepare('UPDATE payments SET status=?,provider_transaction_id=? WHERE order_id=?')->execute([$result['status'], $result['transaction_id'] ?? null, $orderId]);
+                $map = ['paid' => 'paid', 'failed' => 'failed', 'cancelled' => 'failed']; $db->prepare('UPDATE orders SET payment_status=? WHERE id=?')->execute([$map[$result['status']] ?? 'pending', $orderId]);
+            });
+            Response::json(['ok' => true]);
+        } catch (\Throwable $e) { Response::json(['ok' => false, 'message' => 'Callback respins.'], 400); }
+    }
+}

@@ -1,0 +1,16 @@
+.category-showcase{position:relative;min-height:clamp(320px,31vw,520px);overflow:hidden;margin-top:.75rem;background:#8b7363}
+.category-showcase>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 44%;transform:scale(1.015);filter:saturate(.76) contrast(.92)}
+.category-showcase-shade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(43,31,25,.68) 0%,rgba(53,39,31,.43) 42%,rgba(57,42,33,.1) 76%),linear-gradient(0deg,rgba(47,35,29,.16),transparent 55%)}
+.category-showcase-copy{position:relative;z-index:1;display:flex;min-height:inherit;flex-direction:column;justify-content:center;color:#fff}
+.category-showcase-copy .breadcrumb{padding:0 0 1.1rem;color:rgba(255,255,255,.77);font-size:.65rem;text-transform:uppercase;letter-spacing:.08em}
+.category-showcase-copy .breadcrumb a{color:inherit}
+.category-showcase-copy .eyebrow{margin:0 0 .55rem;color:#f5ded0}
+.category-showcase-copy h1{max-width:850px;color:#fff;font-size:clamp(2.65rem,4.2vw,5rem);text-shadow:0 5px 25px rgba(42,27,19,.18)}
+.category-showcase-copy p{max-width:660px;margin-top:.75rem;color:rgba(255,255,255,.9);font-size:.9rem;line-height:1.7}
+.category-shop{grid-template-columns:270px minmax(0,1fr);gap:1.8rem;padding-top:2.2rem}
+.category-filters{top:100px}
+.category-results .product-grid{grid-template-columns:repeat(4,1fr);gap:2.4rem 1rem}
+.category-filter-trigger{margin-top:1.5rem}
+@media(max-width:1250px){.category-results .product-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:1023px){.category-showcase{min-height:390px}.category-shop{grid-template-columns:1fr;padding-top:.9rem}.category-results .product-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:767px){.category-showcase{min-height:360px;margin-top:.35rem}.category-showcase>img{object-position:center}.category-showcase-shade{background:linear-gradient(0deg,rgba(43,31,25,.75),rgba(47,35,29,.08) 75%)}.category-showcase-copy{justify-content:flex-end;padding-bottom:2rem}.category-showcase-copy .breadcrumb{font-size:.52rem}.category-showcase-copy h1{font-size:2.55rem}.category-showcase-copy p{font-size:.76rem}.category-results .product-grid{grid-template-columns:repeat(2,1fr);gap:2.2rem .7rem}}

@@ -1,0 +1,3 @@
+ALTER TABLE reviews
+    ADD COLUMN IF NOT EXISTS admin_reply TEXT NULL AFTER status,
+    ADD COLUMN IF NOT EXISTS replied_at DATETIME NULL AFTER admin_reply;

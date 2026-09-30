@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 900" role="img" aria-label="Imagine în pregătire">
+  <rect width="800" height="900" fill="#f4ece3"/>
+  <circle cx="400" cy="390" r="120" fill="#eadbcd"/>
+  <path d="M315 410c42-90 128-90 170 0M360 350h2m76 0h2" fill="none" stroke="#b89478" stroke-width="18" stroke-linecap="round"/>
+  <text x="400" y="590" text-anchor="middle" font-family="Georgia,serif" font-size="38" fill="#8b654b">SmileBaby</text>
+  <text x="400" y="638" text-anchor="middle" font-family="Arial,sans-serif" font-size="20" letter-spacing="4" fill="#786f69">ÎNCEPUTURI FRUMOASE</text>
+</svg>

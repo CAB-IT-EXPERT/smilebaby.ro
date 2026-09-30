@@ -1,0 +1,1 @@
+<section class="message-page shell"><span class="message-icon">♡</span><h1>Acces restricționat</h1><p>Nu ai permisiunea necesară pentru această pagină.</p><a class="button" href="/">ÎNAPOI ACASĂ</a></section>

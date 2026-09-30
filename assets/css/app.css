@@ -1,0 +1,39 @@
+@import url('./variables.css');
+@import url('./reset.css');
+@import url('./base.css');
+@import url('./layout.css');
+@import url('./components.css');
+@import url('./header.css');
+@import url('./home.css');
+@import url('./shop.css');
+@import url('./product.css');
+@import url('./account.css');
+@import url('./checkout.css');
+@import url('./error-pages.css');
+@import url('./responsive.css');
+@import url('./search-premium.css');
+@import url('./shop-reference.css');
+@import url('./auth-reference.css');
+@import url('./hero-reference.css');
+@import url('./collections-carousel.css');
+@import url('./about-reference.css');
+@import url('./story-home.css');
+@import url('./home-compact.css');
+@import url('./about-page.css');
+@import url('./home-products.css');
+@import url('./testimonials.css');
+@import url('./footer-newsletter.css');
+@import url('./category-page.css');
+@import url('./persistence.css');
+@import url('./contact-page.css');
+@import url('./legal-pages.css');
+@import url('./product-mobile.css');
+@import url('./social-contact.css');
+@import url('./product-desktop.css');
+@import url('./account-dashboard.css');
+@import url('./tracking-page.css');
+@import url('./customization.css');
+@import url('./product-addons.css');
+
+/* Emoji imported from WordPress descriptions must behave like text, not content images. */
+.product-details img.emoji,.product-short img.emoji{display:inline-block;width:1em;height:1em;margin:0 .08em;vertical-align:-.12em;box-shadow:none;object-fit:contain}

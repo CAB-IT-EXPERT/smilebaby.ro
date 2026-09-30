@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /checkout
+Disallow: /cos
+Disallow: /cont
+Disallow: /cauta
+Sitemap: https://www.smilebaby.ro/sitemap.xml

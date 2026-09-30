@@ -1,0 +1,32 @@
+[data-wishlist-form].active button,
+.wishlist-form.active button {
+  color: #fff;
+  background: #b64f5d;
+  border-color: #b64f5d;
+  box-shadow: 0 8px 22px rgba(182, 79, 93, .22);
+}
+
+[data-wishlist-form].active button svg,
+.wishlist-form.active button svg,
+.favorite-link.has-items svg {
+  fill: currentColor;
+}
+
+[data-wishlist-count][hidden] {
+  display: none !important;
+}
+
+.favorite-link [data-wishlist-count] {
+  top: 0;
+  right: -2px;
+}
+
+.favorite-link.has-items {
+  color: #b64f5d;
+  background: #fff0f2;
+}
+
+.favorite-link.has-items:hover {
+  color: #a83f4e;
+  background: #fde4e8;
+}

@@ -1,0 +1,8 @@
+<label>Denumire variantă<input name="variant_label[]" value="<?= e($variant['label'] ?? '') ?>" placeholder="ex. Roz / 0–3 luni"></label>
+<label class="variant-sku-field" data-variant-sku-field data-variant-id="<?= (int) ($variant['id'] ?? 0) ?>">SKU<input name="variant_sku[]" value="<?= e($variant['sku'] ?? '') ?>" placeholder="generat automat" autocomplete="off" data-variant-sku><span class="variant-sku-message" data-variant-sku-message aria-live="polite">Lasă liber pentru generare automată.</span></label>
+<label>Preț<input type="number" step="0.01" min="0" name="variant_regular_price[]" value="<?= e($variant['regular_price'] ?? '') ?>" placeholder="moștenește"></label>
+<label>Preț redus<input type="number" step="0.01" min="0" name="variant_sale_price[]" value="<?= e($variant['sale_price'] ?? '') ?>"></label>
+<label>Stoc<input type="number" min="0" name="variant_stock_quantity[]" value="<?= e($variant['stock_quantity'] ?? '') ?>" placeholder="nelimitat"></label>
+<label>Disponibilitate<select name="variant_stock_status[]"><option value="in_stock">În stoc</option><option value="out_of_stock" <?= ($variant['stock_status'] ?? '') === 'out_of_stock' ? 'selected' : '' ?>>Indisponibil</option><option value="on_backorder" <?= ($variant['stock_status'] ?? '') === 'on_backorder' ? 'selected' : '' ?>>Precomandă</option></select></label>
+<label>Status<select name="variant_status[]"><option value="active">Activă</option><option value="inactive" <?= ($variant['status'] ?? '') === 'inactive' ? 'selected' : '' ?>>Inactivă</option></select></label>
+<button class="variant-remove" type="button" data-remove-variant>Elimină</button>

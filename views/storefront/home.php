@@ -72,29 +72,32 @@
     </div>
     <?php if (count($products) > 1): ?><div class="home-product-dots" aria-label="Produse recomandate"><?php foreach ($products as $index => $product): ?><button class="<?= $index === 0 ? 'active' : '' ?>" type="button" aria-label="<?= e($product['name']) ?>" data-product-dot="<?= $index ?>"></button><?php endforeach ?></div><?php endif ?>
 </section><?php endif ?>
+<?php
+$googleReviews = [
+    ['author' => 'Claudia Boiciuc', 'initials' => 'CB', 'quote' => 'Am rămas fără cuvinte când am văzut câtă atenție, rafinament și suflet au fost puse în trusoul de botez pentru finuța noastră.', 'reviewer' => '115063110352289489575'],
+    ['author' => 'Viorica Cicioc', 'initials' => 'VC', 'quote' => 'Am descoperit întâmplător acest magazin de trusouri și am fost plăcut surprinsă de calitatea produselor și atenția la detalii.', 'reviewer' => '108515804453728754531'],
+    ['author' => 'Ioana Miruna Baica', 'initials' => 'IB', 'quote' => 'Doamnele de la atelier au mare atenție la detalii, totul a iesit minunat. Doamna de la magazin a fost foarte atenta…', 'reviewer' => '112800082597797948876'],
+    ['author' => 'Angie S', 'initials' => 'AS', 'quote' => 'Am avut norocul să găsesc acest magazin care mi-a oferit cel mai frumos costum de mini-mire. Pe lângă disponibilitate și amabilitate, am găsit calitate…', 'reviewer' => '109097372010337304330'],
+    ['author' => 'Bianca Patricia Moldovan', 'initials' => 'BM', 'quote' => 'Recomand cu incredere! Marturiile pentru botez sunt deosebite!', 'reviewer' => '102836717070230354669'],
+    ['author' => 'Alyn Patru', 'initials' => 'AP', 'quote' => 'Calitate superioară, amabilitate, rapiditate și încredere totală, un serviciu excepțional. Am vrut să personalizăm un trusou și în 2 zile a fost gata…', 'reviewer' => '103294709897881852542'],
+];
+$googleReviewUrl = static fn (string $reviewer): string => 'https://www.google.com/maps/reviews/data=!4m5!14m4!1m3!1m2!1s' . $reviewer . '!2s0x47490f455e9a1717:0x69d3006517118a1d?hl=ro';
+?>
 <section class="home-testimonials shell" aria-labelledby="testimonials-title">
     <header class="testimonials-heading">
         <div class="testimonials-title"><span class="eyebrow">CU DRAG, DE LA CLIENȚII NOȘTRI</span><h2 id="testimonials-title">Cuvinte care ne bucură.</h2><p>Experiențe povestite de oamenii care au ales darurile și produsele create în atelierul nostru.</p></div>
-        <div class="google-review-summary" aria-label="Recenzii verificate Google, evaluare de cinci stele"><span class="google-g" aria-hidden="true"><svg viewBox="0 0 48 48" focusable="false"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303C33.654 32.657 29.223 36 24 36c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917Z"/><path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4c-7.682 0-14.344 4.337-17.694 10.691Z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44Z"/><path fill="#1976D2" d="M43.611 20.083 43.595 20H42 24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917Z"/></svg></span><div class="google-score"><p><strong>5,0</strong><span aria-hidden="true">★★★★★</span></p><small>Recenzii verificate pe Google</small></div></div>
+        <div class="google-review-summary" aria-label="Evaluare de cinci stele pe Google Maps"><span class="google-g" aria-hidden="true"><svg viewBox="0 0 48 48" focusable="false"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303C33.654 32.657 29.223 36 24 36c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917Z"/><path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4c-7.682 0-14.344 4.337-17.694 10.691Z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44Z"/><path fill="#1976D2" d="M43.611 20.083 43.595 20H42 24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917Z"/></svg></span><div class="google-score"><p><strong>5,0</strong><span aria-hidden="true">★★★★★</span></p><small>Recenzii pe Google Maps</small></div></div>
     </header>
-    <div class="testimonials-track" data-testimonials-track>
+    <div class="testimonials-track" data-testimonials-track aria-label="Recenziile clienților, glisează pentru mai multe">
+        <?php foreach ($googleReviews as $review): ?>
         <article class="testimonial-card">
             <div class="testimonial-stars" aria-label="5 din 5 stele">★★★★★</div>
-            <blockquote>„Recomand serviciile voastre cu toată încrederea. Trusoul personalizat a fost foarte frumos, produsele de calitate superioară, iar disponibilitatea și creativitatea de care ați dat dovadă sunt de apreciat. Vă mulțumesc pentru tot!”</blockquote>
-            <footer class="testimonial-author"><span class="testimonial-avatar"><img src="<?= asset('images/testimonials/nicoleta.png') ?>" alt="" loading="lazy"></span><div><p><strong>Nicoleta</strong><span class="verified-mark" aria-label="Recenzie verificată">✓</span></p><small>Recenzie verificată · Google</small></div></footer>
+            <blockquote>„<?= e($review['quote']) ?>”</blockquote>
+            <footer class="testimonial-author"><span class="testimonial-avatar" aria-hidden="true"><?= e($review['initials']) ?></span><div><p><strong><?= e($review['author']) ?></strong></p><a class="testimonial-source" href="<?= e($googleReviewUrl($review['reviewer'])) ?>" target="_blank" rel="noopener noreferrer" aria-label="Vezi pe Google recenzia scrisă de <?= e($review['author']) ?>">Vezi recenzia pe Google <span aria-hidden="true">↗</span></a></div></footer>
         </article>
-        <article class="testimonial-card">
-            <div class="testimonial-stars" aria-label="5 din 5 stele">★★★★★</div>
-            <blockquote>„Îi recomand cu drag! Servicii și produse ireproșabile, o foarte mare atenție la nevoile clientului și mereu la înălțime. Am fost foarte mulțumită. Calitatea produselor este excepțională. Livrarea a fost rapidă.”</blockquote>
-            <footer class="testimonial-author"><span class="testimonial-avatar"><img src="<?= asset('images/testimonials/nadia.png') ?>" alt="" loading="lazy"></span><div><p><strong>Nadia</strong><span class="verified-mark" aria-label="Recenzie verificată">✓</span></p><small>Recenzie verificată · Google</small></div></footer>
-        </article>
-        <article class="testimonial-card">
-            <div class="testimonial-stars" aria-label="5 din 5 stele">★★★★★</div>
-            <blockquote>„Recomand cu încredere serviciile ireproșabile, gata la timp, deschiși la nou și adaptare la cerințele și nevoile clientului. Voi recomanda cu drag tuturor celor care vor să aibă un eveniment de neuitat, cu produse de calitate!”</blockquote>
-            <footer class="testimonial-author"><span class="testimonial-avatar"><img src="<?= asset('images/testimonials/andreea.png') ?>" alt="" loading="lazy"></span><div><p><strong>Andreea</strong><span class="verified-mark" aria-label="Recenzie verificată">✓</span></p><small>Recenzie verificată · Google</small></div></footer>
-        </article>
+        <?php endforeach ?>
     </div>
-    <div class="testimonials-mobile-hint"><button class="active" type="button" data-testimonial-dot aria-label="Arată recenzia 1"></button><button type="button" data-testimonial-dot aria-label="Arată recenzia 2"></button><button type="button" data-testimonial-dot aria-label="Arată recenzia 3"></button><small>Glisează pentru mai multe recenzii</small></div>
+    <div class="testimonials-mobile-hint" data-testimonial-dots><small>Glisează pentru mai multe recenzii</small></div>
 </section>
 <?php if ($posts): ?><section class="section shell"><div class="section-heading centered"><span class="eyebrow">POVEȘTI ȘI INSPIRAȚIE</span><h2>Din atelierul SmileBaby</h2></div><div class="blog-grid"><?php foreach ($posts as $post): ?><article class="blog-card"><a href="/blog/<?= e($post['slug']) ?>"><img src="<?= e(optimized_image_url($post['featured_image'], 'card')) ?>" alt="<?= e($post['title']) ?>" loading="lazy" decoding="async"><span><?= date('d.m.Y', strtotime($post['published_at'])) ?></span><h3><?= e($post['title']) ?></h3><p><?= e($post['excerpt']) ?></p></a></article><?php endforeach ?></div></section><?php endif ?>
 <section id="newsletter" class="newsletter newsletter-premium shell">

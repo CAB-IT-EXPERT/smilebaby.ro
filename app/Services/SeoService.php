@@ -10,8 +10,7 @@ final class SeoService
 
     public function generateProductMetadata(array $product): array
     {
-        $name = $this->cleanText((string) ($product['name'] ?? 'Produs SmileBaby'));
-        $name = $this->romanianize($name);
+        $name = $this->capitalize($this->romanianize($this->cleanText((string) ($product['name'] ?? 'Produs SmileBaby'))));
         $category = $this->productCategory($product);
 
         $suffix = ' | ' . self::BRAND;
@@ -22,15 +21,18 @@ final class SeoService
 
         $subject = $this->truncate($name, 82);
         $kind = $this->productKind($name, $category);
+        $crafted = str_starts_with($kind, 'o ') ? 'realizată' : 'realizat';
         $personalization = !empty($product['is_customizable'])
             ? ' Poate fi personalizat pentru evenimentul tău.'
             : '';
-        $description = 'Descoperă ' . $subject . ', ' . $kind . ' realizat cu grijă în România.'
+        $description = 'Descoperă ' . $subject . ', ' . $kind . ' ' . $crafted . ' cu grijă în România.'
             . $personalization . ' Comandă online de la SmileBaby.';
+        $description = $this->truncate($description, 159);
+        if (!preg_match('/[.!?…]$/u', $description)) $description .= '.';
 
         return [
             'title' => $this->truncate($title, 60),
-            'description' => $this->truncate($description, 160),
+            'description' => $description,
         ];
     }
 
@@ -338,10 +340,16 @@ final class SeoService
     private function romanianize(string $value): string
     {
         return str_ireplace(
-            ['jucarie', 'crosetata', 'lumanare', 'marturie', 'baieti', 'fetita', 'ingeras'],
-            ['jucărie', 'croșetată', 'lumânare', 'mărturie', 'băieți', 'fetiță', 'îngeraș'],
+            ['jucarie', 'crosetata', 'lumanare', 'marturie', 'baieti', 'fetita', 'ingeras', 'tigrisor', 'albinuta', 'ursulet'],
+            ['jucărie', 'croșetată', 'lumânare', 'mărturie', 'băieți', 'fetiță', 'îngeraș', 'tigrișor', 'albinuța', 'ursuleț'],
             $value
         );
+    }
+
+    private function capitalize(string $value): string
+    {
+        if ($value === '') return $value;
+        return strtoupper(substr($value, 0, 1)) . substr($value, 1);
     }
 
     private function truncate(string $value, int $limit): string

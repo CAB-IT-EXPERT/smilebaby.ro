@@ -5,14 +5,14 @@
     <div class="drawer-items">
         <?php foreach($items as $item):?>
             <article class="<?= $item['customization'] ? 'is-personalized' : 'is-standard' ?>">
-                <img src="<?=e(upload_url($item['variant']['image_path']??$item['product']['image_path']))?>" alt="">
+                <img src="<?=e(optimized_image_url($item['variant']['image_path']??$item['product']['image_path'], 'card'))?>" alt="" loading="lazy" decoding="async">
                 <span>
                     <strong><?=e($item['product']['name'])?></strong>
                     <?php if($item['variant']):?><small><?=e($item['variant']['label']?:$item['variant']['sku'])?></small><?php endif?>
                     <?php if(!empty($item['fields'])):?><small class="cart-drawer-customization <?= $item['customization'] ? 'is-personalized' : 'is-standard' ?>"><?= $item['customization'] ? '✦ Cu personalizare' : '○ Fără personalizare' ?></small><?php endif?>
                     <?php if($item['customization']): foreach($item['customization']['values'] as $value):?><small class="cart-drawer-customization-value"><?=e($value['label'])?>: <b><?=e($value['type']==='date'?date('d.m.Y',strtotime($value['value'])):$value['value'])?></b></small><?php endforeach; endif?>
                     <small><?=$item['quantity']?> × <?=money($item['price'])?></small>
-                    <?php if(!empty($item['addons'])):?><span class="drawer-addon-group"><b>＋ Completează setul</b><?php foreach($item['addons'] as $addon):?><small><img src="<?=e(upload_url($addon['image_path']))?>" alt=""><span><?=e($addon['name'])?><em><?= (int)$addon['quantity_per_set'] ?> × <?=money($addon['price'])?> / set<?= $item['quantity'] > 1 ? ' · '.(int)$item['quantity'].' seturi' : '' ?></em></span></small><?php endforeach?></span><?php endif?>
+                    <?php if(!empty($item['addons'])):?><span class="drawer-addon-group"><b>＋ Completează setul</b><?php foreach($item['addons'] as $addon):?><small><img src="<?=e(optimized_image_url($addon['image_path'], 'card'))?>" alt="" loading="lazy" decoding="async"><span><?=e($addon['name'])?><em><?= (int)$addon['quantity_per_set'] ?> × <?=money($addon['price'])?> / set<?= $item['quantity'] > 1 ? ' · '.(int)$item['quantity'].' seturi' : '' ?></em></span></small><?php endforeach?></span><?php endif?>
                 </span>
                 <b><?=money($item['total'])?></b>
             </article>

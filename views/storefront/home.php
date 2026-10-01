@@ -1,7 +1,7 @@
 <?php $heroImage='assets/images/hero-trusou-botez.png'; ?>
 <div class="home-page">
 <section class="hero hero-reference shell">
-    <picture class="hero-picture"><source media="(max-width: 767px)" srcset="<?= asset('images/hero-trusou-botez.png') ?>"><img class="hero-background" src="<?= asset('images/hero-trusou-botez.png') ?>" alt="Trusou de botez SmileBaby în nuanțe calde, cu lumânare și accesorii delicate" fetchpriority="high"></picture>
+    <picture class="hero-picture"><source media="(max-width: 767px)" srcset="<?= image_asset('images/hero-trusou-botez.webp') ?>"><img class="hero-background" src="<?= image_asset('images/hero-trusou-botez.webp') ?>" alt="Trusou de botez SmileBaby în nuanțe calde, cu lumânare și accesorii delicate" width="1920" height="1080" fetchpriority="high" decoding="async"></picture>
     <div class="hero-copy">
         <span class="eyebrow">MAI MULT DECÂT PRODUSE PENTRU CEI MICI</span>
         <h1>Începuturi delicate pentru povestea botezului.</h1>
@@ -23,7 +23,7 @@
         <div class="category-track" data-category-track>
             <?php foreach ($categories as $index => $category): ?>
                 <a class="category-slide<?= $index === 0 ? ' active' : '' ?>" href="/categorie/<?= e($category['slug']) ?>" data-category-slide>
-                    <span><img src="<?= e(upload_url($category['image_path'] ?? null)) ?>" alt="<?= e($category['name']) ?>" loading="lazy"></span>
+                    <span><img src="<?= e(optimized_image_url($category['image_path'] ?? null, 'card')) ?>" alt="<?= e($category['name']) ?>" width="720" height="720" loading="lazy" decoding="async"></span>
                     <strong><?= e($category['name']) ?></strong>
                     <small><?= e($category['short_description'] ?: match ($category['slug']) { 'botez-fetite' => 'Trusouri delicate și personalizate', 'botez-baieti' => 'Seturi elegante pentru cei mici', 'lumanari-botez' => 'Lumină caldă pentru ceremonie', default => 'Amintiri oferite cu drag' }) ?></small>
                 </a>
@@ -47,15 +47,15 @@
     </nav>
     <div class="story-panels">
         <article id="poveste-1" class="story-panel in-view" data-story-panel="0">
-            <figure><img src="<?= asset('images/story-smilebaby-ladybug.png') ?>" alt="Trusou de botez personalizat SmileBaby cu tematică buburuză" loading="lazy"></figure>
+            <figure><img src="<?= image_asset('images/story-smilebaby-ladybug.png') ?>" alt="Trusou de botez personalizat SmileBaby cu tematică buburuză" loading="lazy" decoding="async"></figure>
             <div><span>01 · ALEGEREA TA</span><h3>Un început ales cu suflet.</h3><p>Descoperi produse create pentru ceremonia voastră și alegi modelul care spune cel mai bine povestea familiei.</p></div>
         </article>
         <article id="poveste-2" class="story-panel story-panel-reverse" data-story-panel="1">
-            <figure><img src="<?= asset('images/categories/lumanari-botez.png') ?>" alt="Lumânări de botez personalizate SmileBaby" loading="lazy"></figure>
+            <figure><img src="<?= image_asset('images/categories/lumanari-botez.png') ?>" alt="Lumânări de botez personalizate SmileBaby" loading="lazy" decoding="async"></figure>
             <div><span>02 · PERSONALIZAREA</span><h3>Fiecare detaliu devine al vostru.</h3><p>Numele, data, culorile și accesoriile sunt armonizate cu grijă, pentru un rezultat personal și delicat.</p></div>
         </article>
         <article id="poveste-3" class="story-panel" data-story-panel="2">
-            <figure><img src="<?= asset('images/categories/marturii-botez.png') ?>" alt="Mărturie de botez ambalată pentru a fi dăruită" loading="lazy"></figure>
+            <figure><img src="<?= image_asset('images/categories/marturii-botez.png') ?>" alt="Mărturie de botez ambalată pentru a fi dăruită" loading="lazy" decoding="async"></figure>
             <div><span>03 · DARUL</span><h3>Pregătit să rămână amintire.</h3><p>Comanda este verificată și ambalată atent, pentru ca momentul în care o deschizi să păstreze toată emoția.</p></div>
         </article>
     </div>
@@ -96,7 +96,7 @@
     </div>
     <div class="testimonials-mobile-hint"><button class="active" type="button" data-testimonial-dot aria-label="Arată recenzia 1"></button><button type="button" data-testimonial-dot aria-label="Arată recenzia 2"></button><button type="button" data-testimonial-dot aria-label="Arată recenzia 3"></button><small>Glisează pentru mai multe recenzii</small></div>
 </section>
-<?php if ($posts): ?><section class="section shell"><div class="section-heading centered"><span class="eyebrow">POVEȘTI ȘI INSPIRAȚIE</span><h2>Din atelierul SmileBaby</h2></div><div class="blog-grid"><?php foreach ($posts as $post): ?><article class="blog-card"><a href="/blog/<?= e($post['slug']) ?>"><img src="<?= e(upload_url($post['featured_image'])) ?>" alt="<?= e($post['title']) ?>" loading="lazy"><span><?= date('d.m.Y', strtotime($post['published_at'])) ?></span><h3><?= e($post['title']) ?></h3><p><?= e($post['excerpt']) ?></p></a></article><?php endforeach ?></div></section><?php endif ?>
+<?php if ($posts): ?><section class="section shell"><div class="section-heading centered"><span class="eyebrow">POVEȘTI ȘI INSPIRAȚIE</span><h2>Din atelierul SmileBaby</h2></div><div class="blog-grid"><?php foreach ($posts as $post): ?><article class="blog-card"><a href="/blog/<?= e($post['slug']) ?>"><img src="<?= e(optimized_image_url($post['featured_image'], 'card')) ?>" alt="<?= e($post['title']) ?>" loading="lazy" decoding="async"><span><?= date('d.m.Y', strtotime($post['published_at'])) ?></span><h3><?= e($post['title']) ?></h3><p><?= e($post['excerpt']) ?></p></a></article><?php endforeach ?></div></section><?php endif ?>
 <section id="newsletter" class="newsletter newsletter-premium shell">
     <span class="newsletter-seal" aria-hidden="true">♡</span>
     <div class="newsletter-copy">

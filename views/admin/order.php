@@ -78,15 +78,15 @@ $isCod = ($order['payment_method'] ?? '') === 'cash_on_delivery';
                 <div class="admin-order-product-list">
                     <?php foreach ($items as $item): ?>
                         <article>
-                            <button class="admin-order-product-image" type="button" data-order-image="<?= e(upload_url($item['image_path'])) ?>" data-order-image-alt="<?= e($item['product_name']) ?>">
-                                <img src="<?= e(upload_url($item['image_path'])) ?>" alt="<?= e($item['product_name']) ?>"><i><?= icon('plus') ?></i>
+                            <button class="admin-order-product-image" type="button" data-order-image="<?= e(optimized_image_url($item['image_path'], 'display')) ?>" data-order-image-alt="<?= e($item['product_name']) ?>">
+                                <img src="<?= e(optimized_image_url($item['image_path'], 'card')) ?>" alt="<?= e($item['product_name']) ?>" loading="lazy" decoding="async"><i><?= icon('plus') ?></i>
                             </button>
                             <div class="admin-order-product-copy">
                                 <strong><?= e($item['product_name']) ?></strong>
                                 <small><?= e($item['display_sku'] ?: 'Fără SKU') ?> · <?= (int) $item['quantity'] ?> buc.</small>
                                 <?php if (!empty($item['variant_name'])): ?><span><?= e($item['variant_name']) ?></span><?php endif; ?>
                                 <?php $personalization = !empty($item['customization_json']) ? json_decode($item['customization_json'], true) : []; if ($personalization): ?><div class="admin-order-personalization"><b>✦ PERSONALIZARE</b><?php foreach($personalization as $detail): ?><small><span><?= e($detail['label'] ?? '') ?></span><strong><?= e(($detail['type'] ?? '') === 'date' ? date('d.m.Y', strtotime($detail['value'] ?? '')) : ($detail['value'] ?? '')) ?></strong></small><?php endforeach ?></div><?php endif; ?>
-                                <?php $orderAddons = !empty($item['addons_json']) ? json_decode($item['addons_json'], true) : []; if ($orderAddons): ?><div class="admin-order-addons"><b>＋ PRODUSE SUPLIMENTARE</b><?php foreach($orderAddons as $addon): ?><article><img src="<?=e(upload_url($addon['image_path']??null))?>" alt=""><p><strong><?=e($addon['name']??'Produs')?></strong><small><?= (int)($addon['quantity']??1) ?> × <?=money($addon['price']??0)?></small></p><em><?=money($addon['total']??0)?></em></article><?php endforeach ?></div><?php endif; ?>
+                                <?php $orderAddons = !empty($item['addons_json']) ? json_decode($item['addons_json'], true) : []; if ($orderAddons): ?><div class="admin-order-addons"><b>＋ PRODUSE SUPLIMENTARE</b><?php foreach($orderAddons as $addon): ?><article><img src="<?=e(optimized_image_url($addon['image_path']??null, 'card'))?>" alt="" loading="lazy" decoding="async"><p><strong><?=e($addon['name']??'Produs')?></strong><small><?= (int)($addon['quantity']??1) ?> × <?=money($addon['price']??0)?></small></p><em><?=money($addon['total']??0)?></em></article><?php endforeach ?></div><?php endif; ?>
                                 <?php if (!empty($item['product_slug'])): ?><a href="/produs/<?= e($item['product_slug']) ?>" target="_blank" rel="noopener">VEZI PRODUSUL PE SITE <?= icon('arrow') ?></a><?php endif; ?>
                             </div>
                             <b><?= money($item['total']) ?></b>

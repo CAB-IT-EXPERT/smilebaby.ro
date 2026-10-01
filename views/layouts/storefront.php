@@ -100,7 +100,7 @@ $organizationSchema = [
         <button class="icon-button search-close" type="button" aria-label="Închide căutarea" data-search-close><?= icon('close') ?></button>
         <span class="search-eyebrow">DESCOPERĂ SMILEBABY</span><label for="site-search">Ce cauți pentru începutul cel mai frumos?</label>
         <div class="search-input-wrap"><?=icon('search')?><input id="site-search" type="search" placeholder="Trusou, lumânare, mărturie sau cod produs…" autocomplete="off" data-search-input><kbd>ESC</kbd></div>
-        <div class="search-smart"><div class="search-intro" data-search-intro><div class="search-group-title"><span>Colecțiile noastre</span><small>Alege un început</small></div><div class="search-quick-categories"><?php foreach((new App\Models\CategoryRepository())->homepage() as $searchCategory):?><a href="/categorie/<?=e($searchCategory['slug'])?>"><img src="<?=e(upload_url($searchCategory['image_path']))?>" alt=""><span><?=e($searchCategory['name'])?></span></a><?php endforeach?></div><div class="recent-searches" data-recent-searches hidden><div class="search-group-title"><span>Căutări recente</span><button type="button" data-clear-recent>Șterge</button></div><div data-recent-list></div></div></div><div class="search-loading" data-search-loading hidden><i></i><i></i><i></i></div><div class="search-results" data-search-results hidden></div></div>
+        <div class="search-smart"><div class="search-intro" data-search-intro><div class="search-group-title"><span>Colecțiile noastre</span><small>Alege un început</small></div><div class="search-quick-categories"><?php foreach((new App\Models\CategoryRepository())->homepage() as $searchCategory):?><a href="/categorie/<?=e($searchCategory['slug'])?>"><img src="<?=e(optimized_image_url($searchCategory['image_path'], 'card'))?>" alt="" loading="lazy" decoding="async"><span><?=e($searchCategory['name'])?></span></a><?php endforeach?></div><div class="recent-searches" data-recent-searches hidden><div class="search-group-title"><span>Căutări recente</span><button type="button" data-clear-recent>Șterge</button></div><div data-recent-list></div></div></div><div class="search-loading" data-search-loading hidden><i></i><i></i><i></i></div><div class="search-results" data-search-results hidden></div></div>
         <div class="search-footer"><span>Caută tolerant la greșeli după nume, cod, slug, categorie sau preț.</span><a class="text-link" href="/magazin" data-search-all>Vezi toate produsele <?=icon('arrow')?></a></div>
     </div>
 </div>
@@ -117,7 +117,7 @@ $organizationSchema = [
 </section>
 <footer class="site-footer">
     <div class="shell footer-identity">
-        <a class="footer-logo" href="/" aria-label="SmileBaby — pagina principală"><img src="<?= asset('images/logo-smilebaby-transparent.png') ?>" alt="SmileBaby"></a>
+        <a class="footer-logo" href="/" aria-label="SmileBaby — pagina principală"><img src="<?= image_asset('images/logo-smilebaby-transparent.png') ?>" alt="SmileBaby" loading="lazy" decoding="async"></a>
         <div class="footer-brand-copy"><p>Daruri și obiecte delicate, pregătite cu grijă pentru cele mai prețioase începuturi.</p><a class="footer-phone" href="tel:<?= e($sitePhoneHref) ?>"><?= icon('phone') ?><span><?= e($sitePhone) ?></span></a><div class="footer-socials" aria-label="SmileBaby pe rețelele sociale"><?php foreach ($socialLinks as $network => $url): ?><a href="<?= e($url) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e(ucfirst($network)) ?> SmileBaby"><?= icon($network) ?></a><?php endforeach ?></div></div>
     </div>
     <div class="shell footer-rule" aria-hidden="true"></div>
@@ -129,7 +129,7 @@ $organizationSchema = [
     <div class="shell footer-bottom">
         <span>© <?= date('Y') ?> SmileBaby. Toate drepturile rezervate.</span>
         <a class="footer-credit" href="https://cab-it.ro" target="_blank" rel="noopener" aria-label="Website realizat de CAB-IT">
-            <span>Designed by</span><img src="<?= asset('images/cab-it-mark.png') ?>" alt="CAB-IT"><strong>cab-it.ro</strong>
+            <span>Designed by</span><img src="<?= image_asset('images/cab-it-mark.png') ?>" alt="CAB-IT" loading="lazy" decoding="async"><strong>cab-it.ro</strong>
         </a>
         <div class="footer-payments" aria-label="Metode de plată acceptate">
             <span class="payment-badge visa" aria-label="Visa">VISA</span>

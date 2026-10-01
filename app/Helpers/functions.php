@@ -22,12 +22,66 @@ function asset(string $path): string {
     }
     return $url . '?v=' . $version;
 }
-function upload_url(?string $path): string {
-    if (!$path) return asset('images/placeholder.svg');
+function image_asset(string $path): string {
+    $relative = ltrim(str_replace('\\', '/', $path), '/');
+    if (preg_match('/\.(?:jpe?g|png)$/i', $relative)) {
+        $webp = preg_replace('/\.(?:jpe?g|png)$/i', '.webp', $relative);
+        if ($webp && defined('BASE_PATH') && is_file(BASE_PATH . '/assets/' . str_replace('/', DIRECTORY_SEPARATOR, $webp))) {
+            return asset($webp);
+        }
+    }
+    return asset($relative);
+}
+function normalized_media_path(?string $path): ?string {
+    if (!$path) return null;
     $path = str_replace('\\', '/', trim($path));
+    if ($path === '') return null;
+
+    if (preg_match('#^https?://#i', $path)) {
+        $parts = parse_url($path);
+        $host = strtolower((string) ($parts['host'] ?? ''));
+        $urlPath = (string) ($parts['path'] ?? '');
+        if (in_array($host, ['smilebaby.ro', 'www.smilebaby.ro'], true)
+            && preg_match('#^/wp-content/uploads/(.+)$#i', $urlPath, $match)) {
+            return 'uploads/' . ltrim(rawurldecode($match[1]), '/');
+        }
+        return $path;
+    }
+
+    $relative = ltrim($path, '/');
+    if (preg_match('#^wp-content/uploads/(.+)$#i', $relative, $match)) {
+        return 'uploads/' . ltrim($match[1], '/');
+    }
+    return $relative;
+}
+function upload_url(?string $path): string {
+    $path = normalized_media_path($path);
+    if (!$path) return asset('images/placeholder.svg');
     if (preg_match('#^https?://#i', $path)) return $path;
     if (str_starts_with($path, '//')) return 'https:' . $path;
     return '/' . ltrim($path, '/');
+}
+function optimized_image_url(?string $path, string $variant = 'display'): string {
+    $path = normalized_media_path($path);
+    if (!$path || preg_match('#^https?://#i', $path) || str_starts_with($path, '//')) return upload_url($path);
+
+    $relative = ltrim($path, '/');
+    if (str_starts_with($relative, 'uploads/') && in_array($variant, ['card', 'display'], true)) {
+        $extension = pathinfo($relative, PATHINFO_EXTENSION);
+        if ($extension !== '') {
+            $base = substr($relative, 0, -(strlen($extension) + 1));
+            $candidate = $base . '.' . $variant . '.webp';
+            $absolute = defined('BASE_PATH') ? BASE_PATH . '/' . str_replace('/', DIRECTORY_SEPARATOR, $candidate) : '';
+            if ($absolute && is_file($absolute)) return '/' . $candidate . '?v=' . filemtime($absolute);
+        }
+    }
+
+    if (str_starts_with($relative, 'assets/')) {
+        $assetPath = substr($relative, strlen('assets/'));
+        return image_asset($assetPath);
+    }
+
+    return upload_url($relative);
 }
 function setting(string $key, mixed $default = null): mixed {
     static $cache = [];

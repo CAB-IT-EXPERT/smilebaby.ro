@@ -6,13 +6,13 @@
             $addons = (array) json_decode((string) ($item['addons_json'] ?? ''), true);
         ?>
             <article>
-                <img src="<?= e(upload_url($item['image_path'] ?? null)) ?>" alt="">
+                <img src="<?= e(optimized_image_url($item['image_path'] ?? null, 'card')) ?>" alt="" loading="lazy" decoding="async">
                 <div class="order-result-item-copy">
                     <h3><?= e($item['product_name']) ?></h3>
                     <?php if (!empty($item['variant_name'])): ?><p><?= e($item['variant_name']) ?></p><?php endif ?>
                     <span><?= (int) $item['quantity'] ?> × <?= money($item['price']) ?></span>
                     <?php if ($personalization): ?><div class="order-result-personalization"><b>✦ Personalizare</b><?php foreach ($personalization as $detail): ?><small><span><?= e($detail['label'] ?? 'Detaliu') ?></span><strong><?= e($detail['value'] ?? '') ?></strong></small><?php endforeach ?></div><?php endif ?>
-                    <?php if ($addons): ?><div class="order-result-addons"><b>＋ Produse suplimentare</b><?php foreach ($addons as $addon): ?><small><img src="<?= e(upload_url($addon['image_path'] ?? null)) ?>" alt=""><span><strong><?= e($addon['name'] ?? 'Produs') ?></strong><em><?= (int) ($addon['quantity'] ?? 1) ?> × <?= money($addon['price'] ?? 0) ?></em></span><b><?= money($addon['total'] ?? 0) ?></b></small><?php endforeach ?></div><?php endif ?>
+                    <?php if ($addons): ?><div class="order-result-addons"><b>＋ Produse suplimentare</b><?php foreach ($addons as $addon): ?><small><img src="<?= e(optimized_image_url($addon['image_path'] ?? null, 'card')) ?>" alt="" loading="lazy" decoding="async"><span><strong><?= e($addon['name'] ?? 'Produs') ?></strong><em><?= (int) ($addon['quantity'] ?? 1) ?> × <?= money($addon['price'] ?? 0) ?></em></span><b><?= money($addon['total'] ?? 0) ?></b></small><?php endforeach ?></div><?php endif ?>
                 </div>
                 <strong class="order-result-line-total"><?= money($item['total']) ?></strong>
             </article>

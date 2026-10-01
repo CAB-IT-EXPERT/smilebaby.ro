@@ -14,11 +14,11 @@
                     'description' => $category['description'], 'status' => $category['status'], 'show_on_homepage' => (bool) $category['show_on_homepage'],
                     'homepage_order' => (int) $category['homepage_order'], 'meta_title' => $category['meta_title'],
                     'meta_description' => $category['meta_description'], 'indexable' => (bool) $category['indexable'],
-                    'image_url' => upload_url($category['image_path']), 'product_count' => (int) $category['product_count'],
+                    'image_url' => optimized_image_url($category['image_path'], 'card'), 'product_count' => (int) $category['product_count'],
                 ];
             ?>
                 <tr>
-                    <td><button class="catalog-product category-edit-trigger" type="button" data-category-edit="<?= (int) $category['id'] ?>"><img src="<?= e(upload_url($category['image_path'])) ?>" alt=""><span><strong><?= e($category['name']) ?></strong><small class="category-description"><?= e($category['short_description'] ?: 'Fără descriere scurtă') ?></small></span></button><script type="application/json" id="category-data-<?= (int) $category['id'] ?>"><?= json_encode($editorData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script></td>
+                    <td><button class="catalog-product category-edit-trigger" type="button" data-category-edit="<?= (int) $category['id'] ?>"><img src="<?= e(optimized_image_url($category['image_path'], 'card')) ?>" alt="" loading="lazy" decoding="async"><span><strong><?= e($category['name']) ?></strong><small class="category-description"><?= e($category['short_description'] ?: 'Fără descriere scurtă') ?></small></span></button><script type="application/json" id="category-data-<?= (int) $category['id'] ?>"><?= json_encode($editorData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script></td>
                     <td><code><?= e($category['slug']) ?></code></td>
                     <td><?= e($category['parent_name'] ?: '—') ?></td>
                     <td><strong><?= (int) $category['product_count'] ?></strong></td>

@@ -7,7 +7,7 @@
             <a class="button" href="/magazin">DESCOPERĂ COLECȚIILE <?= icon('arrow') ?></a>
         </div>
         <figure class="about-hero-visual">
-            <img src="<?= asset('images/about-hero-mara.png') ?>" alt="Trusou de botez personalizat Mara pregătit în atelierul SmileBaby">
+            <img src="<?= image_asset('images/about-hero-mara.png') ?>" alt="Trusou de botez personalizat Mara pregătit în atelierul SmileBaby" fetchpriority="high" decoding="async">
             <figcaption><span>♡</span> Creat cu grijă, pentru ziua lor specială</figcaption>
         </figure>
     </section>
@@ -20,8 +20,8 @@
 
     <section class="about-craft shell" aria-label="Cum lucrăm în atelier">
         <div class="about-craft-gallery">
-            <figure class="about-craft-main"><img src="<?= asset('images/categories/botez-fetite.png') ?>" alt="Trusou personalizat în nuanțe delicate" loading="lazy"></figure>
-            <figure class="about-craft-small"><img src="<?= asset('images/categories/lumanari-botez.png') ?>" alt="Lumânări de botez decorate manual" loading="lazy"></figure>
+            <figure class="about-craft-main"><img src="<?= image_asset('images/categories/botez-fetite.png') ?>" alt="Trusou personalizat în nuanțe delicate" loading="lazy" decoding="async"></figure>
+            <figure class="about-craft-small"><img src="<?= image_asset('images/categories/lumanari-botez.png') ?>" alt="Lumânări de botez decorate manual" loading="lazy" decoding="async"></figure>
         </div>
         <div class="about-craft-copy">
             <span class="eyebrow">DETALII CARE SE LEAGĂ FRUMOS</span>

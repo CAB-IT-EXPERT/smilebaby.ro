@@ -60,7 +60,7 @@ final class StorefrontController
         }
         $related = (new ProductRepository())->list(['category' => $product['categories'][0]['slug'] ?? ''], 1, 13)['items'];
         $related = array_slice(array_values(array_filter($related, fn ($p) => $p['id'] !== $product['id'])), 0, 12);
-        View::render('storefront/product', ['product' => $product, 'related' => $related, 'meta' => ['title' => ($product['meta_title'] ?? null) ?: $product['name'] . ' — SmileBaby', 'description' => ($product['meta_description'] ?? null) ?: mb_substr(strip_tags((string) ($product['short_description'] ?: $product['description'])), 0, 160), 'canonical' => $product['canonical_url'] ?? null, 'image' => upload_url($product['image_path'] ?? null)]]);
+        View::render('storefront/product', ['product' => $product, 'related' => $related, 'meta' => ['title' => ($product['meta_title'] ?? null) ?: $product['name'] . ' — SmileBaby', 'description' => ($product['meta_description'] ?? null) ?: mb_substr(strip_tags((string) ($product['short_description'] ?: $product['description'])), 0, 160), 'canonical' => $product['canonical_url'] ?? null, 'image' => optimized_image_url($product['image_path'] ?? null, 'display')]]);
     }
 
     public function cart(Request $request): void { View::render('storefront/cart', ['items' => (new CartService())->items(), 'meta' => ['title' => 'Coșul tău — SmileBaby', 'robots' => 'noindex,nofollow']]); }
@@ -432,7 +432,7 @@ final class StorefrontController
     public function search(Request $request): void
     {
         $query=trim((string)($request->query['q']??''));$result=(new SearchService())->search($query,8);
-        Response::json(['query'=>$query,'count'=>$result['count'],'products'=>array_map(fn($p)=>['name'=>$p['name'],'url'=>'/produs/'.$p['slug'],'price'=>money($p['price']),'image'=>upload_url($p['image_path']),'category'=>$p['category_name']??'SmileBaby','sku'=>$p['sku']??null],$result['products']),'categories'=>array_map(fn($c)=>['name'=>$c['name'],'url'=>'/categorie/'.$c['slug'],'image'=>upload_url($c['image_path']??null)],$result['categories'])]);
+        Response::json(['query'=>$query,'count'=>$result['count'],'products'=>array_map(fn($p)=>['name'=>$p['name'],'url'=>'/produs/'.$p['slug'],'price'=>money($p['price']),'image'=>optimized_image_url($p['image_path'],'card'),'category'=>$p['category_name']??'SmileBaby','sku'=>$p['sku']??null],$result['products']),'categories'=>array_map(fn($c)=>['name'=>$c['name'],'url'=>'/categorie/'.$c['slug'],'image'=>optimized_image_url($c['image_path']??null,'card')],$result['categories'])]);
     }
 
     public function sitemap(Request $request): void

@@ -17,6 +17,8 @@
 
 # Local imports and archives
 /uploads.zip
+/uploads/**/*.card.webp
+/uploads/**/*.display.webp
 /produse_woocommerce_complet.json
 
 # Editor and operating-system files

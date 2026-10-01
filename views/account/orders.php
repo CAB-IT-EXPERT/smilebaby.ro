@@ -38,7 +38,7 @@ $ordersTotal = array_sum(array_map(static fn(array $order): float => (float) $or
                             <a href="/cont/comenzi/<?= e($order['order_number']) ?>" data-account-link>
                                 <div class="account-order-preview">
                                     <?php if (!empty($order['preview_image'])): ?>
-                                        <img src="<?= e(upload_url($order['preview_image'])) ?>" alt="">
+                                        <img src="<?= e(optimized_image_url($order['preview_image'], 'card')) ?>" alt="" loading="lazy" decoding="async">
                                     <?php else: ?>
                                         <span><?= icon('gift') ?></span>
                                     <?php endif; ?>

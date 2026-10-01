@@ -1,5 +1,5 @@
 <header class="category-showcase">
-    <?php if ($category['image_path']): ?><img src="<?= e(upload_url($category['image_path'])) ?>" alt="" fetchpriority="high"><?php endif ?>
+    <?php if ($category['image_path']): ?><img src="<?= e(optimized_image_url($category['image_path'], 'display')) ?>" alt="" fetchpriority="high" decoding="async"><?php endif ?>
     <div class="category-showcase-shade"></div>
     <div class="category-showcase-copy shell">
         <nav class="breadcrumb"><a href="/">Acasă</a><span>/</span><a href="/magazin">Magazin</a><span>/</span><span><?= e($category['name']) ?></span></nav>

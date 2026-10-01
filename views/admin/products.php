@@ -31,7 +31,7 @@ $limitReached = $catalogTotal >= $productLimit;
                     $searchTerms = trim($suggestion['name'] . ' ' . ($suggestion['slug'] ?? '') . ' ' . ($suggestion['sku'] ?? '') . ' ' . ($suggestion['categories'] ?? '') . ' ' . $suggestionPrice . ' lei');
                 ?>
                     <a href="/admin/produse/<?= (int) $suggestion['id'] ?>/editare" data-product-suggestion data-search-terms="<?= e(mb_strtolower($searchTerms)) ?>">
-                        <img src="<?= e(upload_url($suggestion['image_path'])) ?>" alt="">
+                        <img src="<?= e(optimized_image_url($suggestion['image_path'], 'card')) ?>" alt="" loading="lazy" decoding="async">
                         <span><strong><?= e($suggestion['name']) ?></strong><small><?= e($suggestion['categories'] ?: 'Fără categorie') ?> · <?= e($suggestion['sku'] ?: 'Fără SKU') ?></small></span>
                         <b><?= money($suggestionPrice) ?></b>
                     </a>
@@ -54,7 +54,7 @@ $limitReached = $catalogTotal >= $productLimit;
                 $stockClass = $onlineStock !== null && $onlineStock <= (int) $product['low_stock_threshold'] ? 'low' : 'ok';
             ?>
                 <tr>
-                    <td><a class="catalog-product" href="/admin/produse/<?= (int) $product['id'] ?>/editare"><img src="<?= e(upload_url($product['image_path'])) ?>" alt=""><span><strong><?= e($product['name']) ?></strong><?php if ((int) $product['variant_count']): ?><small><?= (int) $product['variant_count'] ?> variante</small><?php endif ?></span></a></td>
+                    <td><a class="catalog-product" href="/admin/produse/<?= (int) $product['id'] ?>/editare"><img src="<?= e(optimized_image_url($product['image_path'], 'card')) ?>" alt="" loading="lazy" decoding="async"><span><strong><?= e($product['name']) ?></strong><?php if ((int) $product['variant_count']): ?><small><?= (int) $product['variant_count'] ?> variante</small><?php endif ?></span></a></td>
                     <td><code><?= e($product['sku'] ?: '—') ?></code></td>
                     <td><span class="catalog-category" title="<?= e($product['categories'] ?: 'Fără categorie') ?>"><?= e($product['categories'] ?: 'Fără categorie') ?></span></td>
                     <td><strong class="catalog-price"><?= money($price) ?></strong><?php if ($product['sale_price']): ?><small class="catalog-old-price"><?= money($product['regular_price']) ?></small><?php endif ?></td>

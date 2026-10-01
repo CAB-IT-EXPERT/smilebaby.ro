@@ -12,7 +12,7 @@ if ($saleActive) $badges[] = ['label' => 'Reducere', 'type' => 'sale'];
 <article class="product-card">
     <div class="product-media">
         <?php if ($badges): ?><div class="product-badges"><?php foreach ($badges as $badge): ?><span class="sale-badge badge-<?= e($badge['type']) ?>"><?= e($badge['label']) ?></span><?php endforeach ?></div><?php endif ?>
-        <a href="/produs/<?= e($product['slug']) ?>"><img src="<?= e(upload_url($product['image_path'] ?? null)) ?>" alt="<?= e($product['name']) ?>" loading="lazy"></a>
+        <a href="/produs/<?= e($product['slug']) ?>"><img src="<?= e(optimized_image_url($product['image_path'] ?? null, 'card')) ?>" alt="<?= e($product['name']) ?>" width="720" height="720" loading="lazy" decoding="async"></a>
         <form action="/favorite" method="post" class="wishlist-form" data-wishlist-form><?= csrf_field() ?><input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>"><button type="submit" aria-label="Adaugă <?= e($product['name']) ?> la favorite"><?= icon('heart') ?></button></form>
     </div>
     <div class="product-info">

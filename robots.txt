@@ -1,8 +1,32 @@
+# Public catalog access for search engines and AI search assistants.
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
 User-agent: *
 Allow: /
 Disallow: /admin
+Disallow: /api
+Disallow: /autentificare
 Disallow: /checkout
 Disallow: /cos
 Disallow: /cont
 Disallow: /cauta
+Disallow: /favorite
+Disallow: /newsletter/
+Disallow: /plata/
+Disallow: /comanda-confirmata/
+Disallow: /urmareste-comanda
+
 Sitemap: https://smilebaby.ro/sitemap.xml

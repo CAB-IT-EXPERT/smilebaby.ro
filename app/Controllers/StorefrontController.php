@@ -16,6 +16,7 @@ use App\Services\OrderService;
 use App\Services\OrderTrackingService;
 use App\Services\PaymentService;
 use App\Services\SearchService;
+use App\Services\SeoService;
 use App\Services\StripeCheckoutService;
 
 final class StorefrontController
@@ -25,7 +26,14 @@ final class StorefrontController
         $products = (new ProductRepository())->featured(16);
         $posts = [];
         if (Database::available()) $posts = Database::connection()->query('SELECT * FROM posts WHERE status="published" ORDER BY published_at DESC LIMIT 3')->fetchAll();
-        View::render('storefront/home', ['categories' => (new CategoryRepository())->homepage(), 'products' => $products, 'posts' => $posts, 'meta' => ['title' => setting('seo_title', 'SmileBaby — Începuturi delicate pentru povești mari'), 'description' => setting('seo_description', '')]]);
+        $seo = new SeoService();
+        $appUrl = rtrim((string) config('app.url'), '/');
+        View::render('storefront/home', ['categories' => (new CategoryRepository())->homepage(), 'products' => $products, 'posts' => $posts, 'meta' => [
+            'title' => trim((string) setting('seo_title', '')) ?: 'Trusouri și lumânări de botez personalizate | SmileBaby',
+            'description' => trim((string) setting('seo_description', '')) ?: 'Descoperă trusouri, lumânări, mărturii și cadouri personalizate pentru botez, pregătite cu grijă de atelierul SmileBaby din România.',
+            'canonical' => $appUrl . '/',
+            'schemas' => [$seo->itemListSchema($products, 'Produse recomandate SmileBaby', $appUrl . '/')],
+        ]]);
     }
 
     public function shop(Request $request): void
@@ -33,7 +41,19 @@ final class StorefrontController
         $page = max(1, (int) ($request->query['page'] ?? 1));
         $filters = ['q' => trim((string) ($request->query['q'] ?? '')), 'category' => trim((string) ($request->query['category'] ?? '')), 'min' => $request->query['min'] ?? '', 'max' => $request->query['max'] ?? '', 'stock' => $request->query['stock'] ?? '', 'sort' => $request->query['sort'] ?? ''];
         $result = (new ProductRepository())->list($filters, $page, 16);
-        View::render('storefront/shop', ['products' => $result['items'], 'total' => $result['total'], 'page' => $page, 'pages' => max(1, (int) ceil($result['total'] / 16)), 'filters' => $filters, 'categories' => (new CategoryRepository())->all(), 'meta' => ['title' => 'Magazin — SmileBaby', 'description' => 'Descoperă colecțiile SmileBaby.']]);
+        $shopUrl = rtrim((string) config('app.url'), '/') . '/magazin';
+        $hasFilters = $page > 1 || (bool) array_filter($filters, static fn (mixed $value): bool => $value !== '' && $value !== '0');
+        $seo = new SeoService();
+        View::render('storefront/shop', ['products' => $result['items'], 'total' => $result['total'], 'page' => $page, 'pages' => max(1, (int) ceil($result['total'] / 16)), 'filters' => $filters, 'categories' => (new CategoryRepository())->all(), 'meta' => [
+            'title' => 'Magazin produse pentru botez | SmileBaby',
+            'description' => 'Descoperă trusouri, lumânări, mărturii și cadouri personalizate pentru botez, realizate cu grijă în România de atelierul SmileBaby.',
+            'canonical' => $shopUrl,
+            'robots' => $hasFilters ? 'noindex,follow' : 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1',
+            'schemas' => [
+                $seo->itemListSchema($result['items'], 'Magazin SmileBaby', $shopUrl),
+                $seo->breadcrumbSchema([['name' => 'Acasă', 'url' => '/'], ['name' => 'Magazin', 'url' => '/magazin']]),
+            ],
+        ]]);
     }
 
     public function category(Request $request): void
@@ -44,7 +64,20 @@ final class StorefrontController
         $page = max(1, (int) ($request->query['page'] ?? 1));
         $filters = ['q' => trim((string) ($request->query['q'] ?? '')), 'category' => $slug, 'min' => $request->query['min'] ?? '', 'max' => $request->query['max'] ?? '', 'stock' => $request->query['stock'] ?? '', 'sort' => $request->query['sort'] ?? ''];
         $result = (new ProductRepository())->list($filters, $page, 16);
-        View::render('storefront/category', ['category' => $category, 'products' => $result['items'], 'total' => $result['total'], 'page' => $page, 'pages' => max(1, (int) ceil($result['total'] / 16)), 'filters' => $filters, 'meta' => ['title' => ($category['meta_title'] ?? null) ?: $category['name'] . ' — SmileBaby', 'description' => ($category['meta_description'] ?? null) ?: strip_tags((string) ($category['short_description'] ?? ''))]]);
+        $categoryUrl = rtrim((string) config('app.url'), '/') . '/categorie/' . rawurlencode((string) $category['slug']);
+        $hasFilters = $page > 1 || (bool) array_filter(array_diff_key($filters, ['category' => true]), static fn (mixed $value): bool => $value !== '' && $value !== '0');
+        $seo = new SeoService();
+        View::render('storefront/category', ['category' => $category, 'products' => $result['items'], 'total' => $result['total'], 'page' => $page, 'pages' => max(1, (int) ceil($result['total'] / 16)), 'filters' => $filters, 'meta' => [
+            'title' => ($category['meta_title'] ?? null) ?: $category['name'] . ' | SmileBaby',
+            'description' => ($category['meta_description'] ?? null) ?: strip_tags((string) ($category['short_description'] ?? '')),
+            'canonical' => $categoryUrl,
+            'robots' => !empty($category['indexable']) && !$hasFilters ? 'index,follow,max-image-preview:large,max-snippet:-1' : 'noindex,follow',
+            'image' => optimized_image_url($category['image_path'] ?? null, 'display'),
+            'schemas' => [
+                $seo->itemListSchema($result['items'], (string) $category['name'], $categoryUrl),
+                $seo->breadcrumbSchema([['name' => 'Acasă', 'url' => '/'], ['name' => 'Magazin', 'url' => '/magazin'], ['name' => (string) $category['name'], 'url' => '/categorie/' . $category['slug']]]),
+            ],
+        ]]);
     }
 
     public function product(Request $request): void
@@ -60,7 +93,29 @@ final class StorefrontController
         }
         $related = (new ProductRepository())->list(['category' => $product['categories'][0]['slug'] ?? ''], 1, 13)['items'];
         $related = array_slice(array_values(array_filter($related, fn ($p) => $p['id'] !== $product['id'])), 0, 12);
-        View::render('storefront/product', ['product' => $product, 'related' => $related, 'meta' => ['title' => ($product['meta_title'] ?? null) ?: $product['name'] . ' — SmileBaby', 'description' => ($product['meta_description'] ?? null) ?: mb_substr(strip_tags((string) ($product['short_description'] ?: $product['description'])), 0, 160), 'canonical' => $product['canonical_url'] ?? null, 'image' => optimized_image_url($product['image_path'] ?? null, 'display')]]);
+        $seo = new SeoService();
+        $category = $product['categories'][0] ?? null;
+        $productUrl = rtrim((string) config('app.url'), '/') . '/produs/' . rawurlencode((string) $product['slug']);
+        $generatedMeta = $seo->generateProductMetadata($product);
+        $schemaImages = $product['images'] ?: [['image_path' => $product['image_path'] ?? null]];
+        View::render('storefront/product', ['product' => $product, 'related' => $related, 'meta' => [
+            'title' => ($product['meta_title'] ?? null) ?: $generatedMeta['title'],
+            'description' => ($product['meta_description'] ?? null) ?: $generatedMeta['description'],
+            'canonical' => ($product['canonical_url'] ?? null) ?: $productUrl,
+            'robots' => !empty($product['indexable']) ? 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1' : 'noindex,follow',
+            'image' => optimized_image_url($product['image_path'] ?? null, 'display'),
+            'type' => 'product',
+            'price' => $product['price'],
+            'schemas' => [
+                $seo->productSchema($product, $schemaImages),
+                $seo->breadcrumbSchema(array_values(array_filter([
+                    ['name' => 'Acasă', 'url' => '/'],
+                    ['name' => 'Magazin', 'url' => '/magazin'],
+                    $category ? ['name' => (string) $category['name'], 'url' => '/categorie/' . $category['slug']] : null,
+                    ['name' => (string) $product['name'], 'url' => '/produs/' . $product['slug']],
+                ]))),
+            ],
+        ]]);
     }
 
     public function cart(Request $request): void { View::render('storefront/cart', ['items' => (new CartService())->items(), 'meta' => ['title' => 'Coșul tău — SmileBaby', 'robots' => 'noindex,nofollow']]); }
@@ -398,20 +453,55 @@ final class StorefrontController
     public function blog(Request $request): void
     {
         $posts = Database::available() ? Database::connection()->query('SELECT * FROM posts WHERE status="published" ORDER BY published_at DESC')->fetchAll() : [];
-        View::render('storefront/blog', ['posts' => $posts, 'meta' => ['title' => 'Din atelierul SmileBaby', 'description' => 'Povești, inspirație și ghiduri pentru începuturi frumoase.']]);
+        $seo = new SeoService();
+        View::render('storefront/blog', ['posts' => $posts, 'meta' => [
+            'title' => 'Ghiduri și inspirație pentru botez | SmileBaby',
+            'description' => 'Idei, ghiduri și inspirație din atelierul SmileBaby pentru alegerea și personalizarea produselor de botez.',
+            'canonical' => rtrim((string) config('app.url'), '/') . '/blog',
+            'robots' => $posts ? 'index,follow,max-image-preview:large,max-snippet:-1' : 'noindex,follow',
+            'schemas' => [$seo->breadcrumbSchema([['name' => 'Acasă', 'url' => '/'], ['name' => 'Atelier', 'url' => '/blog']])],
+        ]]);
     }
     public function post(Request $request): void
     {
         $stmt = Database::connection()->prepare('SELECT * FROM posts WHERE slug=? AND status="published" LIMIT 1'); $stmt->execute([$request->params['slug']]); $post = $stmt->fetch();
         if (!$post) { http_response_code(404); View::render('errors/404'); return; }
-        View::render('storefront/post', ['post' => $post, 'meta' => ['title' => ($post['meta_title'] ?: $post['title']) . ' — SmileBaby', 'description' => $post['meta_description'] ?: $post['excerpt']]]);
+        $appUrl = rtrim((string) config('app.url'), '/');
+        $postUrl = $appUrl . '/blog/' . rawurlencode((string) $post['slug']);
+        $postImage = optimized_image_url($post['featured_image'] ?? null, 'display');
+        $postImageUrl = preg_match('#^https?://#i', $postImage) ? $postImage : $appUrl . '/' . ltrim($postImage, '/');
+        $seo = new SeoService();
+        View::render('storefront/post', ['post' => $post, 'meta' => [
+            'title' => $post['meta_title'] ?: $post['title'] . ' | SmileBaby',
+            'description' => $post['meta_description'] ?: $post['excerpt'],
+            'canonical' => $postUrl,
+            'robots' => !empty($post['indexable']) ? 'index,follow,max-image-preview:large,max-snippet:-1' : 'noindex,follow',
+            'image' => $postImage,
+            'type' => 'article',
+            'schemas' => [[
+                '@context' => 'https://schema.org',
+                '@type' => 'Article',
+                '@id' => $postUrl . '#article',
+                'mainEntityOfPage' => $postUrl,
+                'headline' => (string) $post['title'],
+                'description' => (string) ($post['excerpt'] ?? ''),
+                'image' => $postImageUrl,
+                'datePublished' => date('c', strtotime((string) ($post['published_at'] ?? $post['created_at']))),
+                'dateModified' => date('c', strtotime((string) $post['updated_at'])),
+                'inLanguage' => 'ro-RO',
+                'author' => ['@id' => $appUrl . '/#organization'],
+                'publisher' => ['@id' => $appUrl . '/#organization'],
+            ], $seo->breadcrumbSchema([['name' => 'Acasă', 'url' => '/'], ['name' => 'Atelier', 'url' => '/blog'], ['name' => (string) $post['title'], 'url' => '/blog/' . $post['slug']]])],
+        ]]);
     }
 
     public function about(Request $request): void
     {
+        $seo = new SeoService();
         View::render('storefront/about', ['meta' => [
-            'title' => 'Despre noi — Povestea SmileBaby',
+            'title' => 'Despre atelierul SmileBaby | Produse pentru botez',
             'description' => 'Descoperă atelierul SmileBaby și felul în care pregătim trusouri, lumânări și mărturii personalizate pentru botez.',
+            'schemas' => [$seo->breadcrumbSchema([['name' => 'Acasă', 'url' => '/'], ['name' => 'Despre noi', 'url' => '/despre-noi']])],
         ]]);
     }
     public function page(Request $request): void
@@ -424,9 +514,10 @@ final class StorefrontController
             'livrare-si-retur' => ['title' => 'Livrare și retur — SmileBaby', 'description' => 'Livrarea, avansul și condițiile de retur, inclusiv regulile pentru produsele personalizate.'],
             default => ['title' => 'Informații — SmileBaby', 'description' => 'Informații utile SmileBaby.'],
         };
+        $meta['schemas'] = [(new SeoService())->breadcrumbSchema([['name' => 'Acasă', 'url' => '/'], ['name' => $meta['title'], 'url' => '/' . $page]])];
         View::render('storefront/page', ['page' => $page, 'meta' => $meta]);
     }
-    public function contact(Request $request): void { View::render('storefront/contact', ['meta' => ['title' => 'Contact — SmileBaby']]); }
+    public function contact(Request $request): void { View::render('storefront/contact', ['meta' => ['title' => 'Contact SmileBaby | Comenzi și produse personalizate', 'description' => 'Contactează atelierul SmileBaby pentru informații despre trusouri, lumânări, mărturii, personalizare, comenzi și livrare.', 'schemas' => [(new SeoService())->breadcrumbSchema([['name' => 'Acasă', 'url' => '/'], ['name' => 'Contact', 'url' => '/contact']])]]]); }
     public function contactSend(Request $request): void { $errors = Validator::required($request->body, ['name' => 'Numele', 'email' => 'Emailul', 'message' => 'Mesajul']); if ($errors) { Session::flash('errors', $errors); Response::redirect('/contact'); } Database::connection()->prepare('INSERT INTO contact_messages (name,email,phone,subject,message) VALUES (?,?,?,?,?)')->execute([trim($request->input('name')), mb_strtolower(trim($request->input('email'))), trim($request->input('phone')), trim($request->input('subject')), trim($request->input('message'))]); Session::flash('success', 'Mesajul tău a fost trimis. Îți răspundem cât mai curând.'); Response::redirect('/contact'); }
 
     public function search(Request $request): void
@@ -437,13 +528,154 @@ final class StorefrontController
 
     public function sitemap(Request $request): void
     {
-        $urls = [config('app.url') . '/', config('app.url') . '/magazin', config('app.url') . '/blog'];
+        $appUrl = rtrim((string) config('app.url'), '/');
+        $maps = ['sitemap-pages.xml', 'sitemap-products.xml', 'sitemap-categories.xml'];
+        if (Database::available() && (int) Database::connection()->query('SELECT COUNT(*) FROM posts WHERE status="published" AND indexable=1')->fetchColumn() > 0) $maps[] = 'sitemap-posts.xml';
+        $items = array_map(static fn (string $map): string => '<sitemap><loc>' . self::xml($appUrl . '/' . $map) . '</loc></sitemap>', $maps);
+        Response::xml('<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . implode('', $items) . '</sitemapindex>');
+    }
+
+    public function sitemapPages(Request $request): void
+    {
+        $updated = date('c', max(filemtime(BASE_PATH . '/views/storefront/home.php'), filemtime(BASE_PATH . '/views/storefront/page.php')));
+        $paths = ['/', '/magazin', '/despre-noi', '/contact', '/termeni-si-conditii', '/confidentialitate', '/cookies', '/livrare-si-retur'];
+        if (Database::available() && (int) Database::connection()->query('SELECT COUNT(*) FROM posts WHERE status="published" AND indexable=1')->fetchColumn() > 0) $paths[] = '/blog';
+        $appUrl = rtrim((string) config('app.url'), '/');
+        $rows = array_map(static fn (string $path): array => ['loc' => $appUrl . $path, 'lastmod' => $updated], $paths);
+        $this->sitemapUrlset($rows);
+    }
+
+    public function sitemapProducts(Request $request): void
+    {
+        $rows = [];
         if (Database::available()) {
-            foreach (Database::connection()->query('SELECT slug FROM products WHERE status="active" AND indexable=1')->fetchAll() as $r) $urls[] = config('app.url') . '/produs/' . $r['slug'];
-            foreach (Database::connection()->query('SELECT slug FROM categories WHERE status="active" AND indexable=1')->fetchAll() as $r) $urls[] = config('app.url') . '/categorie/' . $r['slug'];
-            foreach (Database::connection()->query('SELECT slug FROM posts WHERE status="published" AND indexable=1')->fetchAll() as $r) $urls[] = config('app.url') . '/blog/' . $r['slug'];
+            $sql = 'SELECT p.slug,p.name,p.updated_at,(SELECT image_path FROM product_images WHERE product_id=p.id ORDER BY is_featured DESC,sort_order,id LIMIT 1) image_path FROM products p WHERE p.status="active" AND p.indexable=1 ORDER BY p.id';
+            $appUrl = rtrim((string) config('app.url'), '/');
+            foreach (Database::connection()->query($sql)->fetchAll() as $product) {
+                $image = optimized_image_url($product['image_path'] ?? null, 'display');
+                $rows[] = [
+                    'loc' => $appUrl . '/produs/' . rawurlencode((string) $product['slug']),
+                    'lastmod' => date('c', strtotime((string) $product['updated_at'])),
+                    'image' => preg_match('#^https?://#i', $image) ? $image : $appUrl . $image,
+                    'image_title' => (string) $product['name'],
+                ];
+            }
         }
-        Response::xml('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . implode('', array_map(fn ($url) => '<url><loc>' . e($url) . '</loc></url>', $urls)) . '</urlset>');
+        $this->sitemapUrlset($rows, true);
+    }
+
+    public function sitemapCategories(Request $request): void
+    {
+        $rows = [];
+        if (Database::available()) {
+            $appUrl = rtrim((string) config('app.url'), '/');
+            foreach (Database::connection()->query('SELECT slug,updated_at FROM categories WHERE status="active" AND indexable=1 ORDER BY id')->fetchAll() as $category) $rows[] = [
+                'loc' => $appUrl . '/categorie/' . rawurlencode((string) $category['slug']),
+                'lastmod' => date('c', strtotime((string) $category['updated_at'])),
+            ];
+        }
+        $this->sitemapUrlset($rows);
+    }
+
+    public function sitemapPosts(Request $request): void
+    {
+        $rows = [];
+        if (Database::available()) {
+            $appUrl = rtrim((string) config('app.url'), '/');
+            foreach (Database::connection()->query('SELECT slug,updated_at FROM posts WHERE status="published" AND indexable=1 ORDER BY id')->fetchAll() as $post) $rows[] = [
+                'loc' => $appUrl . '/blog/' . rawurlencode((string) $post['slug']),
+                'lastmod' => date('c', strtotime((string) $post['updated_at'])),
+            ];
+        }
+        $this->sitemapUrlset($rows);
+    }
+
+    public function llms(Request $request): void
+    {
+        $appUrl = rtrim((string) config('app.url'), '/');
+        $lines = [
+            '# SmileBaby',
+            '',
+            '> Magazin online și atelier din România pentru trusouri de botez, lumânări, mărturii, cadouri și produse personalizate.',
+            '',
+            'Limba principală: română (ro-RO). Moneda: RON. Produsele sunt noi și pot include opțiuni de personalizare.',
+            '',
+            '## Pagini principale',
+            '- [Magazin](' . $appUrl . '/magazin): catalogul complet de produse',
+            '- [Despre SmileBaby](' . $appUrl . '/despre-noi): informații despre atelier și modul de lucru',
+            '- [Livrare și retur](' . $appUrl . '/livrare-si-retur): costuri, termene și excepțiile produselor personalizate',
+            '- [Contact](' . $appUrl . '/contact): date oficiale de contact',
+            '',
+            '## Date structurate',
+            '- [Sitemap](' . $appUrl . '/sitemap.xml)',
+            '- [Catalog extins pentru sisteme AI](' . $appUrl . '/llms-full.txt)',
+            '',
+            'Informațiile despre preț, stoc și variante trebuie verificate pe pagina fiecărui produs, deoarece se pot modifica.',
+        ];
+        Response::text(implode("\n", $lines) . "\n", 'text/markdown');
+    }
+
+    public function llmsFull(Request $request): void
+    {
+        $appUrl = rtrim((string) config('app.url'), '/');
+        $lines = ['# Catalog SmileBaby', '', 'Catalog public actualizat din baza de date a magazinului.', ''];
+        if (Database::available()) {
+            $sql = 'SELECT p.name,p.slug,p.short_description,p.regular_price,p.sale_price,p.is_customizable,GROUP_CONCAT(DISTINCT c.name ORDER BY c.name SEPARATOR ", ") categories FROM products p LEFT JOIN product_categories pc ON pc.product_id=p.id LEFT JOIN categories c ON c.id=pc.category_id WHERE p.status="active" AND p.indexable=1 GROUP BY p.id ORDER BY p.name';
+            foreach (Database::connection()->query($sql)->fetchAll() as $product) {
+                $price = (float) ($product['sale_price'] ?: $product['regular_price']);
+                $description = trim((string) preg_replace('/\s+/u', ' ', strip_tags((string) ($product['short_description'] ?? ''))));
+                $lines[] = '## ' . $product['name'];
+                $lines[] = '- URL: ' . $appUrl . '/produs/' . rawurlencode((string) $product['slug']);
+                $lines[] = '- Categorie: ' . (($product['categories'] ?? '') ?: 'Produse pentru botez');
+                $lines[] = '- Preț curent: ' . number_format($price, 2, ',', '.') . ' RON';
+                $lines[] = '- Personalizare: ' . (!empty($product['is_customizable']) ? 'disponibilă' : 'nu este indicată');
+                if ($description !== '') $lines[] = '- Descriere: ' . mb_substr($description, 0, 320);
+                $lines[] = '';
+            }
+        }
+        Response::text(implode("\n", $lines) . "\n", 'text/markdown');
+    }
+
+    public function agents(Request $request): void
+    {
+        $appUrl = rtrim((string) config('app.url'), '/');
+        Response::text(implode("\n", [
+            '# SmileBaby — informații pentru agenți și asistenți AI',
+            '',
+            '- Sursa oficială: ' . $appUrl . '/',
+            '- Catalog public: ' . $appUrl . '/magazin',
+            '- Catalog structurat: ' . $appUrl . '/llms-full.txt',
+            '- Sitemap: ' . $appUrl . '/sitemap.xml',
+            '- Limbă: română (ro-RO)',
+            '- Monedă: RON',
+            '- Arie de livrare: România',
+            '',
+            'Folosește paginile publice ale produselor drept sursă pentru denumire, descriere, preț, disponibilitate și opțiuni. Verifică pagina produsului înainte de a comunica prețul sau stocul, deoarece acestea se pot modifica.',
+            '',
+            'Nu accesa și nu cita pagini private de cont, checkout, plată, administrare sau urmărire a comenzilor.',
+        ]) . "\n", 'text/markdown');
+    }
+
+    private function sitemapUrlset(array $rows, bool $withImages = false): never
+    {
+        $namespace = $withImages ? ' xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"' : '';
+        $items = [];
+        foreach ($rows as $row) {
+            $entry = '<url><loc>' . self::xml((string) $row['loc']) . '</loc>';
+            if (!empty($row['lastmod'])) $entry .= '<lastmod>' . self::xml((string) $row['lastmod']) . '</lastmod>';
+            if ($withImages && !empty($row['image'])) {
+                $entry .= '<image:image><image:loc>' . self::xml((string) $row['image']) . '</image:loc>';
+                if (!empty($row['image_title'])) $entry .= '<image:title>' . self::xml((string) $row['image_title']) . '</image:title>';
+                $entry .= '</image:image>';
+            }
+            $items[] = $entry . '</url>';
+        }
+        Response::xml('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"' . $namespace . '>' . implode('', $items) . '</urlset>');
+    }
+
+    private static function xml(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_XML1, 'UTF-8');
     }
 
     public function paymentCallback(Request $request): void

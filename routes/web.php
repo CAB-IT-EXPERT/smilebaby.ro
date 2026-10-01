@@ -36,6 +36,13 @@ $router->get('/contact', [StorefrontController::class, 'contact']);
 $router->post('/contact', [StorefrontController::class, 'contactSend'], ['csrf']);
 $router->get('/despre-noi', [StorefrontController::class, 'about']);
 $router->get('/sitemap.xml', [StorefrontController::class, 'sitemap']);
+$router->get('/sitemap-pages.xml', [StorefrontController::class, 'sitemapPages']);
+$router->get('/sitemap-products.xml', [StorefrontController::class, 'sitemapProducts']);
+$router->get('/sitemap-categories.xml', [StorefrontController::class, 'sitemapCategories']);
+$router->get('/sitemap-posts.xml', [StorefrontController::class, 'sitemapPosts']);
+$router->get('/llms.txt', [StorefrontController::class, 'llms']);
+$router->get('/llms-full.txt', [StorefrontController::class, 'llmsFull']);
+$router->get('/agents.md', [StorefrontController::class, 'agents']);
 $router->post('/plati/callback/{provider}', [StorefrontController::class, 'paymentCallback']);
 foreach (['termeni-si-conditii','confidentialitate','cookies','livrare-si-retur'] as $page) {
     $router->get('/' . $page, [StorefrontController::class, 'page']);

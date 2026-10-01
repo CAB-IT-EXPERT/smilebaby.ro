@@ -13,6 +13,7 @@ use App\Services\ImageService;
 use App\Services\OrderService;
 use App\Services\ProductAddonService;
 use App\Services\ProductCustomizationService;
+use App\Services\SeoService;
 use App\Services\SmtpClient;
 use App\Services\SmartProductSearchService;
 use App\Services\StripeCatalogService;
@@ -289,6 +290,7 @@ final class AdminController
             Session::flash('error', $error->getMessage());
             Response::redirect('/admin/produse/' . $id . '/editare?step=3');
         }
+        (new SeoService())->ensureProductMetadata($db, $id);
         try {
             (new StripeCatalogService())->sync($id);
         } catch (\Throwable $error) {
@@ -420,6 +422,7 @@ final class AdminController
         $id=(int)($request->params['id']??0); $slug=slugify(trim((string)$request->input('slug'))?:trim((string)$request->input('name'))); $image=null; if (!empty($request->files['image']['name'])) $image=(new ImageService())->store($request->files['image'],'categories');
         $params=[(int)$request->input('parent_id')?:null,trim($request->input('name')),$slug,(string)$request->input('short_description'),(string)$request->input('description'),(string)$request->input('status','active'),(int)(bool)$request->input('show_on_homepage'),(int)$request->input('homepage_order'),trim($request->input('meta_title'))?:null,trim($request->input('meta_description'))?:null,(int)(bool)$request->input('indexable')];
         if($id){$sql='UPDATE categories SET parent_id=?,name=?,slug=?,short_description=?,description=?,status=?,show_on_homepage=?,homepage_order=?,meta_title=?,meta_description=?,indexable=?'.($image?',image_path=?':'').' WHERE id=?'; if($image)$params[]=$image; $params[]=$id; Database::connection()->prepare($sql)->execute($params);} else {$params[]=$image; Database::connection()->prepare('INSERT INTO categories (parent_id,name,slug,short_description,description,status,show_on_homepage,homepage_order,meta_title,meta_description,indexable,image_path) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')->execute($params);$id=(int)Database::connection()->lastInsertId();}
+        (new SeoService())->ensureCategoryMetadata(Database::connection(), $id);
         Session::flash('success','Categoria a fost salvată.');Response::redirect('/admin/categorii?edit='.$id);
     }
 

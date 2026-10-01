@@ -4,14 +4,11 @@ DirectoryIndex index.php
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # During DNS migration both hostnames must remain usable. Some resolvers may
-    # temporarily send the apex and www hosts to different servers; redirecting
-    # between them would create a loop. Force HTTPS on the same trusted host and
-    # restore the canonical apex redirect only after propagation is complete.
+    # A single HTTPS host avoids duplicate URLs and consolidates every SEO signal.
     RewriteCond %{REQUEST_URI} !^/\.well-known/acme-challenge/ [NC]
-    RewriteCond %{HTTPS} !=on
-    RewriteCond %{HTTP_HOST} ^(?:www\.)?smilebaby\.ro(?::\d+)?$ [NC]
-    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=302,L,NE]
+    RewriteCond %{HTTPS} !=on [OR]
+    RewriteCond %{HTTP_HOST} ^www\.smilebaby\.ro(?::\d+)?$ [NC]
+    RewriteRule ^ https://smilebaby.ro%{REQUEST_URI} [R=301,L,NE]
 
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d

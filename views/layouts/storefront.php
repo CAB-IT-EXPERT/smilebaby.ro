@@ -27,14 +27,37 @@ $socialLinks = [
     'tiktok' => trim((string) setting('tiktok_url', '')) ?: 'https://www.tiktok.com/@smilebaby.ro',
 ];
 $appUrl = rtrim((string) config('app.url'), '/');
-$pageUrl = $meta['canonical'] ?? $appUrl . ($_SERVER['REQUEST_URI'] ?? '/');
-$socialImage = $meta['image'] ?? setting('logo', asset('images/logo-smilebaby.png'));
-if (!preg_match('#^https?://#i', (string) $socialImage)) $socialImage = $appUrl . '/' . ltrim((string) $socialImage, '/');
-$organizationSchema = [
-    '@context' => 'https://schema.org', '@type' => 'Organization', 'name' => $siteName,
-    'url' => $appUrl . '/', 'logo' => $socialImage, 'email' => setting('site_email', 'contact@smilebaby.ro'),
-    'telephone' => $sitePhone, 'sameAs' => array_values($socialLinks),
+$pageUrl = (string) ($meta['canonical'] ?? ($appUrl . $currentPath));
+if (!preg_match('#^https?://#i', $pageUrl)) $pageUrl = $appUrl . '/' . ltrim($pageUrl, '/');
+$logoImage = (string) setting('logo', image_asset('images/logo-smilebaby.png'));
+if (!preg_match('#^https?://#i', $logoImage)) $logoImage = $appUrl . '/' . ltrim($logoImage, '/');
+$socialImage = (string) ($meta['image'] ?? $logoImage);
+if (!preg_match('#^https?://#i', $socialImage)) $socialImage = $appUrl . '/' . ltrim($socialImage, '/');
+$returnPolicy = [
+    '@type' => 'MerchantReturnPolicy',
+    'applicableCountry' => 'RO',
+    'returnPolicyCountry' => 'RO',
+    'returnPolicyCategory' => 'https://schema.org/MerchantReturnFiniteReturnWindow',
+    'merchantReturnDays' => 14,
+    'returnMethod' => 'https://schema.org/ReturnByMail',
+    'returnFees' => 'https://schema.org/ReturnShippingFees',
+    'returnShippingFeesAmount' => ['@type' => 'MonetaryAmount', 'value' => max(0, (float) setting('return_shipping_cost', 20)), 'currency' => 'RON'],
 ];
+$organizationSchema = [
+    '@context' => 'https://schema.org', '@type' => 'OnlineStore', '@id' => $appUrl . '/#organization', 'name' => $siteName,
+    'url' => $appUrl . '/', 'logo' => ['@type' => 'ImageObject', 'url' => $logoImage], 'image' => $logoImage,
+    'email' => setting('site_email', 'contact@smilebaby.ro'), 'telephone' => $sitePhone,
+    'contactPoint' => ['@type' => 'ContactPoint', 'contactType' => 'customer service', 'telephone' => $sitePhone, 'email' => setting('site_email', 'contact@smilebaby.ro'), 'availableLanguage' => ['ro']],
+    'areaServed' => ['@type' => 'Country', 'name' => 'România'], 'sameAs' => array_values(array_filter($socialLinks)),
+    'hasMerchantReturnPolicy' => $returnPolicy,
+];
+$websiteSchema = [
+    '@context' => 'https://schema.org', '@type' => 'WebSite', '@id' => $appUrl . '/#website',
+    'url' => $appUrl . '/', 'name' => $siteName, 'inLanguage' => 'ro-RO',
+    'publisher' => ['@id' => $appUrl . '/#organization'],
+    'potentialAction' => ['@type' => 'SearchAction', 'target' => $appUrl . '/magazin?q={search_term_string}', 'query-input' => 'required name=search_term_string'],
+];
+$structuredData = array_merge([$organizationSchema, $websiteSchema], (array) ($meta['schemas'] ?? []));
 ?>
 <!doctype html>
 <html lang="ro">
@@ -46,13 +69,16 @@ $organizationSchema = [
     <meta name="theme-color" content="#fcfaf7">
     <title><?= e($title) ?></title>
     <meta name="description" content="<?= e($description) ?>">
-    <meta name="robots" content="<?= e($meta['robots'] ?? 'index,follow') ?>">
+    <meta name="robots" content="<?= e($meta['robots'] ?? 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1') ?>">
+    <meta name="author" content="SmileBaby">
     <link rel="canonical" href="<?= e($pageUrl) ?>">
+    <link rel="alternate" hreflang="ro-RO" href="<?= e($pageUrl) ?>">
+    <link rel="alternate" hreflang="x-default" href="<?= e($pageUrl) ?>">
     <meta name="google-site-verification" content="<?= e(trim((string) setting('google_site_verification', '')) ?: 'aPxwrBNLU-Gga2vs-aFL2dyYByHeoW3axzyxLRaiN7g') ?>">
     <meta property="og:locale" content="ro_RO">
     <meta property="og:title" content="<?= e($title) ?>">
     <meta property="og:description" content="<?= e($description) ?>">
-    <meta property="og:type" content="website">
+    <meta property="og:type" content="<?= e($meta['type'] ?? 'website') ?>">
     <meta property="og:url" content="<?= e($pageUrl) ?>">
     <meta property="og:site_name" content="<?= e($siteName) ?>">
     <meta property="og:image" content="<?= e($socialImage) ?>">
@@ -60,13 +86,14 @@ $organizationSchema = [
     <meta name="twitter:title" content="<?= e($title) ?>">
     <meta name="twitter:description" content="<?= e($description) ?>">
     <meta name="twitter:image" content="<?= e($socialImage) ?>">
+    <?php if (isset($meta['price'])): ?><meta property="product:price:amount" content="<?= e(number_format((float) $meta['price'], 2, '.', '')) ?>"><meta property="product:price:currency" content="RON"><?php endif ?>
     <link rel="icon" type="image/png" href="<?= asset('images/favicon-owl.png') ?>">
     <link rel="apple-touch-icon" href="<?= asset('images/favicon-owl.png') ?>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
-    <script type="application/ld+json"><?= json_encode($organizationSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?></script>
+    <?php foreach ($structuredData as $schema): ?><script type="application/ld+json"><?= json_encode($schema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script><?php endforeach ?>
 </head>
 <body>
 <a class="skip-link" href="#continut">Sari la conținut</a>

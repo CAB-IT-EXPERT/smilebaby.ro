@@ -24,4 +24,12 @@ final class Response
         echo $content;
         exit;
     }
+
+    public static function text(string $content, string $contentType = 'text/plain'): never
+    {
+        header('Content-Type: ' . $contentType . '; charset=utf-8');
+        header('Cache-Control: public, max-age=3600');
+        echo $content;
+        exit;
+    }
 }

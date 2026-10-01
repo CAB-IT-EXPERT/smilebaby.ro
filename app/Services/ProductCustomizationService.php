@@ -10,6 +10,13 @@ use RuntimeException;
 final class ProductCustomizationService
 {
     private static bool $schemaReady = false;
+    private const TRUSOU_DEFAULT_OPTIONS = [
+        ['Capac cufăr', 50],
+        ['Prosoape (prosop mare + prosop mic)', 100],
+        ['Fașă de botez', 25],
+        ['Pânză de mir', 25],
+        ['Lumânare', 20],
+    ];
 
     public function ensureSchema(?PDO $db = null): void
     {
@@ -25,6 +32,7 @@ final class ProductCustomizationService
             $this->backfillExistingCustomizableProducts($db);
             $this->backfillPersonalizedMessageField($db);
             $this->backfillTrusouOptions($db);
+            $this->backfillAllExistingTrusouri($db);
             self::$schemaReady = true;
             return;
         } catch (PDOException) {
@@ -71,6 +79,7 @@ final class ProductCustomizationService
         $this->backfillExistingCustomizableProducts($db);
         $this->backfillPersonalizedMessageField($db);
         $this->backfillTrusouOptions($db);
+        $this->backfillAllExistingTrusouri($db);
         self::$schemaReady = true;
     }
 
@@ -238,13 +247,6 @@ final class ProductCustomizationService
         $check = $db->prepare('SELECT value FROM settings WHERE `key`=? LIMIT 1');
         $check->execute([$marker]);
         if ((string) $check->fetchColumn() === '1') return;
-        $defaults = [
-            ['Capac cufăr', 50],
-            ['Prosoape (prosop mare + prosop mic)', 100],
-            ['Fașă de botez', 25],
-            ['Pânză de mir', 25],
-            ['Lumânare', 20],
-        ];
         $findProducts = $db->prepare('SELECT id FROM products WHERE is_customizable=1 AND LOWER(name) LIKE ? ORDER BY id');
         $findProducts->execute(['%trusou%']);
         $products = $findProducts->fetchAll(PDO::FETCH_COLUMN);
@@ -255,8 +257,60 @@ final class ProductCustomizationService
             foreach ($products as $productId) {
                 $existing->execute([(int) $productId]);
                 if ((int) $existing->fetchColumn() > 0) continue;
-                foreach ($defaults as $order => [$label, $price]) $insert->execute([(int) $productId, $label, $price, $order]);
+                foreach (self::TRUSOU_DEFAULT_OPTIONS as $order => [$label, $price]) $insert->execute([(int) $productId, $label, $price, $order]);
             }
+            $db->prepare('INSERT INTO settings (`key`,value,type,group_name) VALUES (?,"1","boolean","system") ON DUPLICATE KEY UPDATE value="1",type="boolean",group_name="system"')->execute([$marker]);
+            $db->commit();
+        } catch (\Throwable $error) {
+            if ($db->inTransaction()) $db->rollBack();
+            throw $error;
+        }
+    }
+
+    /**
+     * The first rollout seeded only trusouri already marked customizable. Enable
+     * every trusou that exists at this upgrade, without replacing fields or
+     * option prices that the administrator has already configured.
+     */
+    private function backfillAllExistingTrusouri(PDO $db): void
+    {
+        $marker = 'product_all_existing_trusouri_customizable_v2';
+        $check = $db->prepare('SELECT value FROM settings WHERE `key`=? LIMIT 1');
+        $check->execute([$marker]);
+        if ((string) $check->fetchColumn() === '1') return;
+
+        $db->beginTransaction();
+        try {
+            $findProducts = $db->prepare('SELECT id FROM products WHERE LOWER(name) LIKE ? ORDER BY id FOR UPDATE');
+            $findProducts->execute(['%trusou%']);
+            $products = $findProducts->fetchAll(PDO::FETCH_COLUMN);
+            $enable = $db->prepare('UPDATE products SET is_customizable=1 WHERE id=? AND is_customizable=0');
+            $fieldCount = $db->prepare('SELECT COUNT(*) FROM product_customization_fields WHERE product_id=?');
+            $optionCount = $db->prepare('SELECT COUNT(*) FROM product_customization_options WHERE product_id=?');
+            $insertField = $db->prepare('INSERT INTO product_customization_fields (product_id,label,field_type,placeholder,is_required,sort_order) VALUES (?,?,?,?,?,?)');
+            $insertOption = $db->prepare('INSERT IGNORE INTO product_customization_options (product_id,label,price,sort_order) VALUES (?,?,?,?)');
+            $newlyEnabled = [];
+            foreach ($products as $productId) {
+                $productId = (int) $productId;
+                $enable->execute([$productId]);
+                if ($enable->rowCount() > 0) $newlyEnabled[] = $productId;
+                $fieldCount->execute([$productId]);
+                if ((int) $fieldCount->fetchColumn() === 0) {
+                    $insertField->execute([$productId, 'Numele copilului', 'text', 'Ex.: Maria', 1, 0]);
+                    $insertField->execute([$productId, 'Data botezului/nașterii', 'date', null, 1, 1]);
+                    $insertField->execute([$productId, 'Mesaj personalizat', 'text', 'Scrie mesajul dorit', 0, 2]);
+                }
+                $optionCount->execute([$productId]);
+                if ((int) $optionCount->fetchColumn() === 0) {
+                    foreach (self::TRUSOU_DEFAULT_OPTIONS as $order => [$label, $price]) {
+                        $insertOption->execute([$productId, $label, $price, $order]);
+                    }
+                }
+            }
+            $db->prepare('INSERT INTO settings (`key`,value,type,group_name) VALUES (?, ?, "json", "system") ON DUPLICATE KEY UPDATE value=VALUES(value)')->execute([
+                'product_all_existing_trusouri_activated_ids_v2',
+                json_encode($newlyEnabled, JSON_THROW_ON_ERROR),
+            ]);
             $db->prepare('INSERT INTO settings (`key`,value,type,group_name) VALUES (?,"1","boolean","system") ON DUPLICATE KEY UPDATE value="1",type="boolean",group_name="system"')->execute([$marker]);
             $db->commit();
         } catch (\Throwable $error) {

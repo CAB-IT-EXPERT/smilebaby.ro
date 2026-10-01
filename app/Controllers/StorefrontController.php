@@ -29,8 +29,8 @@ final class StorefrontController
         $seo = new SeoService();
         $appUrl = rtrim((string) config('app.url'), '/');
         View::render('storefront/home', ['categories' => (new CategoryRepository())->homepage(), 'products' => $products, 'posts' => $posts, 'meta' => [
-            'title' => trim((string) setting('seo_title', '')) ?: 'Trusouri și lumânări de botez personalizate | SmileBaby',
-            'description' => trim((string) setting('seo_description', '')) ?: 'Descoperă trusouri, lumânări, mărturii și cadouri personalizate pentru botez, pregătite cu grijă de atelierul SmileBaby din România.',
+            'title' => trim((string) setting('seo_title', '')) ?: 'Trusouri de botez personalizate pentru un început de poveste | SmileBaby',
+            'description' => trim((string) setting('seo_description', '')) ?: 'Trusouri de botez personalizate pentru un început de poveste. Descoperă lumânări, mărturii și accesorii pregătite cu grijă în atelierul SmileBaby.',
             'canonical' => $appUrl . '/',
             'schemas' => [$seo->itemListSchema($products, 'Produse recomandate SmileBaby', $appUrl . '/')],
         ]]);

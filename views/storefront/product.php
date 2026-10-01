@@ -5,7 +5,7 @@ $isBackorder=!empty($product['manage_stock'])&&($product['stock_status']??'')===
 if(!empty($product['variants']))$inStock=(bool)array_filter($product['variants'],fn($v)=>$v['stock_quantity']===null||$v['stock_status']!=='out_of_stock');
 $baseRegularPrice=(float)$product['regular_price'];
 $baseCurrentPrice=(float)($product['sale_price']?:$product['regular_price']);
-$customizationPrice=max(0,(float)($product['customization_price']??0));
+$customizationPrice=!empty($product['customization_options'])?0:max(0,(float)($product['customization_price']??0));
 ?>
 <nav class="breadcrumb shell"><a href="/">Acasă</a><span>›</span><a href="/magazin">Magazin</a><?php if(!empty($product['categories'][0])):?><span>›</span><a href="/categorie/<?=e($product['categories'][0]['slug'])?>"><?=e($product['categories'][0]['name'])?></a><?php endif?><span>›</span><?=e($product['name'])?></nav>
 <article class="product-page shell" data-product-price-configurator data-base-price="<?=e((string)$baseCurrentPrice)?>" data-base-regular-price="<?=e((string)$baseRegularPrice)?>" data-customization-price="<?=e((string)$customizationPrice)?>">
@@ -56,12 +56,20 @@ $customizationPrice=max(0,(float)($product['customization_price']??0));
         <?php endif ?>
         <?php if(!empty($product['is_customizable']) && !empty($product['customization_fields'])): ?>
             <section class="storefront-customization" data-storefront-customization>
+                <?php if (!empty($product['customization_options'])): ?>
+                    <input type="checkbox" name="personalization_enabled" value="1" form="add-to-cart" data-personalization-toggle hidden>
+                    <fieldset class="storefront-customization-options"><legend>Personalizează produsul <small>OPȚIONAL</small></legend>
+                        <p><?= e($product['customization_help_text'] ?: 'Poți alege una sau mai multe personalizări. Datele pentru atelier se completează o singură dată.') ?></p>
+                        <?php foreach ($product['customization_options'] as $option): ?><label class="storefront-customization-option"><input type="checkbox" form="add-to-cart" name="customization_options[]" value="<?= (int) $option['id'] ?>" data-customization-option data-price="<?= e((string) $option['price']) ?>"><i aria-hidden="true">＋</i><span><strong><?= e($option['label']) ?></strong><small><?= e($product['customization_help_text'] ?: 'Numele copilului și data se completează o singură dată mai jos') ?></small></span><b><?= (float) $option['price'] > 0 ? '+' . money($option['price']) : 'Gratuit' ?></b></label><?php endforeach ?>
+                    </fieldset>
+                <?php else: ?>
                 <label class="storefront-customization-toggle">
                     <input type="checkbox" name="personalization_enabled" value="1" form="add-to-cart" autocomplete="off" data-personalization-toggle>
                     <span><i>✦</i><b><small><?= e($product['badge_text'] ?: 'PERSONALIZARE') ?></small><strong>Vreau să personalizez produsul</strong><em>Adaugă nume, dată sau detaliile tale</em></b><u><?= (float)($product['customization_price'] ?? 0) > 0 ? '+' . money($product['customization_price']) : 'GRATUIT' ?></u></span>
                 </label>
+                <?php endif ?>
                 <div class="storefront-customization-fields" data-personalization-fields hidden>
-                    <header><strong>Detaliile personalizării</strong><small>Completează câmpurile marcate cu *</small></header>
+                    <header><strong><?= !empty($product['customization_options']) ? 'Datele pentru atelier' : 'Detaliile personalizării' ?></strong><small>Completează câmpurile marcate cu *</small></header>
                     <?php foreach($product['customization_fields'] as $field): ?>
                         <label><?= e($field['label']) ?><?= !empty($field['is_required']) ? ' *' : '' ?><input form="add-to-cart" type="<?= $field['field_type'] === 'date' ? 'date' : 'text' ?>" name="customization[<?= (int)$field['id'] ?>]" value="" placeholder="<?= e($field['placeholder'] ?? '') ?>" maxlength="250" data-personalization-input data-personalization-required="<?= !empty($field['is_required']) ? '1' : '0' ?>" disabled></label>
                     <?php endforeach ?>

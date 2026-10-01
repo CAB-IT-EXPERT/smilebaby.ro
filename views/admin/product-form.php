@@ -4,6 +4,7 @@ $action = $product ? '/admin/produse/' . $p['id'] . '/salvare' : '/admin/produse
 $editorTitle = $product ? 'Editează produsul' : 'Adaugă un produs';
 $previewImage = $images[0]['image_path'] ?? null;
 $customizationFields = $customizationFields ?? [];
+$customizationOptions = $customizationOptions ?? [];
 $productAddons = $productAddons ?? [];
 $addonCatalog = $addonCatalog ?? [];
 $configuredAddons = [];
@@ -154,10 +155,19 @@ foreach ($productAddons as $addon) $configuredAddons[(int) $addon['addon_product
                             <label class="product-switch product-customization-master"><span><strong>Personalizare activă</strong><small>Când este activă, opțiunea apare pe pagina produsului și în coș.</small></span><input type="checkbox" name="is_customizable" value="1" <?= !empty($p['is_customizable']) ? 'checked' : '' ?> role="switch" data-customization-toggle><i></i></label>
                             <div class="product-customization-config" data-customization-content>
                                 <div class="product-form-grid two product-customization-pricing">
-                                    <label>Preț suplimentar (lei)<input type="number" name="customization_price" min="0" step="0.01" value="<?= e($p['customization_price'] ?? 0) ?>"><small>Se adaugă o singură dată pentru fiecare bucată personalizată.</small></label>
+                                    <label>Preț fix de personalizare (lei)<input type="number" name="customization_price" min="0" step="0.01" value="<?= e($p['customization_price'] ?? 0) ?>"><small>Folosit doar când nu există opțiuni cu preț separat. Pentru trusouri se adună exclusiv opțiunile alese.</small></label>
                                     <label>Etichetă în magazin<input name="badge_text" maxlength="80" value="<?= e($p['badge_text'] ?? '') ?>" placeholder="Ex.: Se poate personaliza"><small>Apare pe cardul produsului și lângă opțiunea de personalizare.</small></label>
                                 </div>
                                 <div class="product-customization-note"><span>✦</span><div><strong>Cum funcționează?</strong><p>Adaugi câmpurile de care ai nevoie. Dacă un câmp este obligatoriu, clientul nu poate confirma personalizarea până nu îl completează.</p></div></div>
+                                <section class="product-customization-options-admin">
+                                    <header class="product-customization-fields-head"><div><span>CE SE PERSONALIZEAZĂ</span><h4>Opțiuni cu preț separat</h4><p>Clienta poate bifa una sau mai multe opțiuni. Prețul fiecăreia se adaugă pentru fiecare bucată comandată.</p></div><button class="admin-button secondary" type="button" data-add-customization-option>+ Adaugă personalizare</button></header>
+                                    <label class="product-customization-help-label">Text explicativ pentru clientă<input name="customization_help_text" maxlength="500" value="<?= e($p['customization_help_text'] ?? '') ?>" placeholder="Ex.: Numele copilului și data se completează o singură dată mai jos"><small>Se afișează deasupra opțiunilor și se aplică acestui produs.</small></label>
+                                    <div class="product-customization-options-admin-list" data-customization-options>
+                                        <?php foreach ($customizationOptions as $option): ?><div class="product-customization-option-admin-row" data-customization-option><input type="hidden" name="customization_option_id[]" value="<?= (int) $option['id'] ?>"><label>Denumirea personalizării<input name="customization_option_label[]" maxlength="150" value="<?= e($option['label']) ?>" placeholder="Ex.: Capac cufăr"></label><label>Costul personalizării (lei)<input type="number" name="customization_option_price[]" min="0" step="0.01" value="<?= e($option['price']) ?>"></label><button type="button" data-remove-customization-option aria-label="Șterge opțiunea <?= e($option['label']) ?>">×</button></div><?php endforeach ?>
+                                    </div>
+                                    <template data-customization-option-template><div class="product-customization-option-admin-row" data-customization-option><input type="hidden" name="customization_option_id[]" value="0"><label>Denumirea personalizării<input name="customization_option_label[]" maxlength="150" placeholder="Ex.: Capac cufăr"></label><label>Costul personalizării (lei)<input type="number" name="customization_option_price[]" min="0" step="0.01" value="0"></label><button type="button" data-remove-customization-option aria-label="Șterge opțiunea">×</button></div></template>
+                                    <p class="product-customization-options-empty" data-customization-options-empty<?= $customizationOptions ? ' hidden' : '' ?>>Nu există opțiuni cu preț separat. Le poți adăuga pentru orice produs personalizabil.</p>
+                                </section>
                                 <header class="product-customization-fields-head"><div><span>CÂMPURILE CLIENTULUI</span><h4>Ce informații trebuie să completeze?</h4><p>Exemple: Nume copil, Data botezului, Data nașterii.</p></div><button class="admin-button secondary" type="button" data-add-customization-field>+ Adaugă câmp</button></header>
                                 <div class="product-customization-fields" data-customization-fields>
                                     <?php foreach ($customizationFields as $field): ?>

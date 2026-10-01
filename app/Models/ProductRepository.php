@@ -79,6 +79,7 @@ final class ProductRepository
         $product['variants'] = $this->variants((int) $product['id']);
         $product['reviews'] = $this->reviews((int) $product['id']);
         $product['customization_fields'] = !empty($product['is_customizable']) ? $customization->fields((int) $product['id']) : [];
+        $product['customization_options'] = !empty($product['is_customizable']) ? $customization->options((int) $product['id']) : [];
         $product['addons'] = !empty($product['addons_enabled']) ? $addons->storefrontOptions((int) $product['id']) : [];
         return $product;
     }

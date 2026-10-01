@@ -137,7 +137,16 @@ final class StripeCheckoutService
             $baseCents = $storedUnitCents - $customizationCents;
             $label = trim((string) $item['product_name'] . (!empty($item['variant_name']) ? ' — ' . $item['variant_name'] : ''));
             if ($baseCents > 0) $lines[] = $this->line($label, $baseCents, $quantity, $currency, 'Produs · ' . ((string) ($item['sku'] ?? 'fără SKU')));
-            if ($customizationCents > 0) $lines[] = $this->line('Personalizare — ' . (string) $item['product_name'], $customizationCents, $quantity, $currency, 'Opțiune aplicată fiecărui produs din această configurație');
+            $optionCents = 0;
+            foreach ((array) json_decode((string) ($item['customization_json'] ?? ''), true) as $detail) {
+                if (($detail['type'] ?? '') !== 'option') continue;
+                $price = self::moneyToCents($detail['price'] ?? 0);
+                if ($price < 0) throw new RuntimeException('Prețul unei personalizări din comandă este invalid. Plata a fost oprită în siguranță.');
+                $optionCents += $price;
+                if ($price > 0) $lines[] = $this->line('Personalizare — ' . (string) ($detail['label'] ?? 'Opțiune'), $price, $quantity, $currency, (string) $item['product_name']);
+            }
+            if ($optionCents > $customizationCents) throw new RuntimeException('Personalizările nu corespund totalului comenzii. Plata a fost oprită în siguranță.');
+            if ($customizationCents > $optionCents) $lines[] = $this->line('Personalizare — ' . (string) $item['product_name'], $customizationCents - $optionCents, $quantity, $currency, 'Cost de personalizare aplicat fiecărei bucăți');
 
             foreach ((array) json_decode((string) ($item['addons_json'] ?? ''), true) as $addon) {
                 $addonCents = self::moneyToCents($addon['price'] ?? 0);

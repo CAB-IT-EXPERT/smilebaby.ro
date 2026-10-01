@@ -54,7 +54,9 @@ final class OrderService
                     $rawValues = [];
                     foreach ((array) ($line['customization']['values'] ?? []) as $value) if (is_array($value) && isset($value['field_id'])) $rawValues[(string) $value['field_id']] = (string) ($value['value'] ?? '');
                     $line['customization']['values'] = $customizationService->validateValues((int) $fresh['id'], $rawValues, $db);
-                    $line['customizationPrice'] = max(0, (float) $fresh['customization_price']);
+                    $line['customization']['options'] = $customizationService->validateOptions((int) $fresh['id'], (array) ($line['customization']['options'] ?? []), $db);
+                    $hasPricedOptions = $customizationService->options((int) $fresh['id'], $db) !== [];
+                    $line['customizationPrice'] = round(($hasPricedOptions ? 0 : max(0, (float) $fresh['customization_price'])) + array_sum(array_column($line['customization']['options'], 'price')), 2);
                     $line['price'] += $line['customizationPrice'];
                 }
                 $line['addons'] = $addonService->validateSelections((int) $fresh['id'], $addonService->rawSelections((array) ($line['addons'] ?? [])), $db, true, (int) $line['quantity']);
@@ -102,7 +104,10 @@ final class OrderService
                     'product_id' => (int) $addon['product_id'], 'name' => $addon['name'], 'slug' => $addon['slug'], 'sku' => $addon['sku'],
                     'image_path' => $addon['image_path'], 'price' => (float) $addon['price'], 'quantity' => (int) $addon['line_quantity'], 'quantity_per_set' => (int) $addon['quantity_per_set'], 'parent_quantity' => (int) $addon['parent_quantity'], 'total' => (float) $addon['line_total'],
                 ], (array) ($line['addons'] ?? []));
-                $itemStmt->execute([$orderId, $p['id'], $line['variant_id'], $p['name'], $variant['sku'] ?? $p['sku'], $variant['label'] ?? null, !empty($line['customization']) ? json_encode($line['customization']['values'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null, $line['customizationPrice'] ?? 0, $addonSnapshot ? json_encode($addonSnapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null, $line['addonsTotal'] ?? 0, $line['price'], $line['quantity'], $line['total'], $variant['image_path'] ?? $p['image_path']]);
+                $customizationSnapshot = [];
+                foreach ((array) ($line['customization']['options'] ?? []) as $option) $customizationSnapshot[] = ['type' => 'option', 'option_id' => (int) $option['option_id'], 'label' => $option['label'], 'value' => (float) $option['price'] > 0 ? '+' . money($option['price']) . ' / buc.' : 'Gratuit', 'price' => (float) $option['price']];
+                $customizationSnapshot = array_merge($customizationSnapshot, (array) ($line['customization']['values'] ?? []));
+                $itemStmt->execute([$orderId, $p['id'], $line['variant_id'], $p['name'], $variant['sku'] ?? $p['sku'], $variant['label'] ?? null, $customizationSnapshot ? json_encode($customizationSnapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null, $line['customizationPrice'] ?? 0, $addonSnapshot ? json_encode($addonSnapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null, $line['addonsTotal'] ?? 0, $line['price'], $line['quantity'], $line['total'], $variant['image_path'] ?? $p['image_path']]);
                 if ($variant && $variant['stock_quantity'] !== null) $db->prepare('UPDATE product_variants SET stock_quantity=stock_quantity-?,stock_status=IF(stock_quantity-?<=0,"out_of_stock",stock_status) WHERE id=?')->execute([$line['quantity'], $line['quantity'], $variant['id']]);
                 elseif ($p['manage_stock']) $db->prepare('UPDATE products SET stock_quantity=stock_quantity-?, stock_status=IF(stock_quantity-?<=0,"out_of_stock",stock_status) WHERE id=?')->execute([$line['quantity'], $line['quantity'], $p['id']]);
                 foreach ((array) ($line['addons'] ?? []) as $addon) if (!empty($addon['manage_stock'])) {

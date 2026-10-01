@@ -14,7 +14,8 @@ function initCart() {
   };
   const customizationSignature = customization => {
     if (!customization?.enabled) return '';
-    return JSON.stringify(Object.entries(customizationValues(customization)).sort(([a], [b]) => a.localeCompare(b, 'ro', { numeric: true })));
+    const options = (customization.options || []).map(option => Number.parseInt(option?.option_id ?? option, 10)).filter(Number.isInteger).sort((a, b) => a - b);
+    return JSON.stringify([Object.entries(customizationValues(customization)).sort(([a], [b]) => a.localeCompare(b, 'ro', { numeric: true })), options]);
   };
   const normalizeAddons = addons => {
     const result = new Map();
@@ -34,7 +35,7 @@ function initCart() {
       const productId = Number.parseInt(item?.product_id, 10);
       const variantId = Number.parseInt(item?.variant_id, 10) || null;
       const quantity = Math.min(99, Math.max(1, Number.parseInt(item?.quantity, 10) || 1));
-      const customization = item?.customization?.enabled ? { enabled: true, values: customizationValues(item.customization) } : null;
+      const customization = item?.customization?.enabled ? { enabled: true, values: customizationValues(item.customization), options: (item.customization.options || []).map(option => Number.parseInt(option?.option_id ?? option, 10)).filter(Number.isInteger) } : null;
       const addons = normalizeAddons(item?.addons);
       const identity = `${productId}:${variantId || 0}:${customizationSignature(customization)}:${addonSignature(addons)}`;
       if (productId > 0) {
@@ -147,7 +148,7 @@ function initCart() {
     const productId = Number.parseInt(data.get('product_id'), 10);
     const variantId = Number.parseInt(data.get('variant_id'), 10) || null;
     const quantity = Math.min(99, Math.max(1, Number.parseInt(data.get('quantity'), 10) || 1));
-    const customization = data.get('personalization_enabled') ? { enabled: true, values: Object.fromEntries([...data.entries()].filter(([key]) => key.startsWith('customization[')).map(([key, value]) => [key.slice(14, -1), String(value)])) } : null;
+    const customization = data.get('personalization_enabled') ? { enabled: true, values: Object.fromEntries([...data.entries()].filter(([key]) => key.startsWith('customization[')).map(([key, value]) => [key.slice(14, -1), String(value)])), options: data.getAll('customization_options[]').map(Number) } : null;
     const addons = [...data.entries()].filter(([key]) => /^addons\[\d+\]\[selected\]$/.test(key)).map(([key]) => {
       const productId = Number.parseInt(key.match(/^addons\[(\d+)\]/)?.[1], 10);
       return { product_id: productId, quantity: Number.parseInt(data.get(`addons[${productId}][quantity]`), 10) || 1 };
@@ -219,11 +220,18 @@ function initCart() {
     if (!line) { form.submit(); return; }
     const enabled = Boolean(data.get('personalization_enabled'));
     const values = Object.fromEntries([...data.entries()].filter(([name]) => name.startsWith('customization[')).map(([name, value]) => [name.slice(14, -1), String(value)]));
-    line.customization = enabled ? { enabled: true, values } : null;
+    const previousItems = JSON.stringify(items);
+    line.customization = enabled ? { enabled: true, values, options: data.getAll('customization_options[]').map(Number) } : null;
     line.cart_key = null;
     saveLocal();
-    await syncCart().catch(() => null);
-    location.reload();
+    try {
+      await syncCart();
+      location.reload();
+    } catch (error) {
+      items = normalize(JSON.parse(previousItems));
+      saveLocal();
+      window.alert(String(error?.message || 'Personalizarea nu a putut fi salvată. Verifică opțiunile și încearcă din nou.'));
+    }
   }));
 
   addEventListener('storage', event => {

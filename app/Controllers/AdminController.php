@@ -119,17 +119,18 @@ final class AdminController
         $customization->ensureSchema($db);
         $addons = new ProductAddonService();
         $addons->ensureSchema($db);
-        $id = (int) ($request->params['id'] ?? 0); $product = null; $selected = []; $images = []; $variants = []; $customizationFields = []; $productAddons = [];
+        $id = (int) ($request->params['id'] ?? 0); $product = null; $selected = []; $images = []; $variants = []; $customizationFields = []; $customizationOptions = []; $productAddons = [];
         if (!$id && (int) $db->query('SELECT COUNT(*) FROM products')->fetchColumn() >= self::PRODUCT_LIMIT) {
             Session::flash('error', self::PRODUCT_LIMIT_MESSAGE);
             Response::redirect('/admin/produse');
         }
         if ($id) { $stmt = Database::connection()->prepare('SELECT * FROM products WHERE id=?'); $stmt->execute([$id]); $product = $stmt->fetch(); if (!$product) { http_response_code(404); View::render('errors/404'); return; } $stmt = Database::connection()->prepare('SELECT category_id FROM product_categories WHERE product_id=?'); $stmt->execute([$id]); $selected = array_map('intval', array_column($stmt->fetchAll(), 'category_id')); $stmt = Database::connection()->prepare('SELECT * FROM product_images WHERE product_id=? ORDER BY is_featured DESC,sort_order'); $stmt->execute([$id]); $images = $stmt->fetchAll(); $stmt = Database::connection()->prepare('SELECT * FROM product_variants WHERE product_id=? ORDER BY id'); $stmt->execute([$id]); $variants = $stmt->fetchAll(); }
         if ($id) $customizationFields = $customization->fields($id, $db);
+        if ($id) $customizationOptions = $customization->options($id, $db);
         if ($id) $productAddons = $addons->configured($id, $db);
         $addonCatalog = $addons->catalog($id, $db);
         $categories = Database::connection()->query('SELECT * FROM categories ORDER BY name')->fetchAll();
-        View::render('admin/product-form', compact('product','selected','images','categories','variants','customizationFields','productAddons','addonCatalog'), 'layouts/admin');
+        View::render('admin/product-form', compact('product','selected','images','categories','variants','customizationFields','customizationOptions','productAddons','addonCatalog'), 'layouts/admin');
     }
 
     public function checkProductAvailability(Request $request): void
@@ -275,6 +276,15 @@ final class AdminController
                 'types' => $request->input('customization_field_type', []),
                 'placeholders' => $request->input('customization_field_placeholder', []),
                 'required' => $request->input('customization_field_required', []),
+            ]);
+            $customization->saveOptions($db, $id, [
+                'ids' => $request->input('customization_option_id', []),
+                'labels' => $request->input('customization_option_label', []),
+                'prices' => $request->input('customization_option_price', []),
+            ]);
+            $db->prepare('UPDATE products SET customization_help_text=? WHERE id=?')->execute([
+                mb_substr(trim((string) $request->input('customization_help_text')), 0, 500) ?: null,
+                $id,
             ]);
             $addons->save(
                 $db,

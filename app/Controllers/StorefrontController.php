@@ -129,7 +129,8 @@ final class StorefrontController
                 $request->input('variant_id') ? (int) $request->input('variant_id') : null,
                 (bool) $request->input('personalization_enabled'),
                 is_array($request->input('customization')) ? $request->input('customization') : [],
-                is_array($request->input('addons')) ? $request->input('addons') : []
+                is_array($request->input('addons')) ? $request->input('addons') : [],
+                is_array($request->input('customization_options')) ? $request->input('customization_options') : []
             );
         } catch (\RuntimeException $error) {
             if ($request->wantsJson()) { Response::json(['ok' => false, 'message' => $error->getMessage()], 422); return; }
@@ -155,7 +156,8 @@ final class StorefrontController
             (new CartService())->updateCustomization(
                 (string) $request->input('key'),
                 (bool) $request->input('personalization_enabled'),
-                is_array($request->input('customization')) ? $request->input('customization') : []
+                is_array($request->input('customization')) ? $request->input('customization') : [],
+                is_array($request->input('customization_options')) ? $request->input('customization_options') : []
             );
             Session::flash('success', $request->input('personalization_enabled') ? 'Personalizarea a fost salvată.' : 'Personalizarea a fost eliminată.');
         } catch (\RuntimeException $error) {

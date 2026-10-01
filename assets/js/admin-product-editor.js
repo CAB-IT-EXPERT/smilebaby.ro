@@ -447,6 +447,22 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   syncCustomization();
 
+  const customizationOptions = customizationRoot?.querySelector('[data-customization-options]');
+  const customizationOptionsEmpty = customizationRoot?.querySelector('[data-customization-options-empty]');
+  customizationRoot?.querySelector('[data-add-customization-option]')?.addEventListener('click', () => {
+    const template = customizationRoot.querySelector('[data-customization-option-template]');
+    if (!template || !customizationOptions) return;
+    customizationOptions.append(template.content.cloneNode(true));
+    if (customizationOptionsEmpty) customizationOptionsEmpty.hidden = true;
+    customizationOptions.lastElementChild?.querySelector('[name="customization_option_label[]"]')?.focus();
+  });
+  customizationOptions?.addEventListener('click', event => {
+    const button = event.target.closest('[data-remove-customization-option]');
+    if (!button) return;
+    button.closest('[data-customization-option]')?.remove();
+    if (customizationOptionsEmpty) customizationOptionsEmpty.hidden = Boolean(customizationOptions.querySelector('[data-customization-option]'));
+  });
+
   const addonRoot = dialog.querySelector('[data-addon-settings]');
   if (addonRoot) {
     const addonToggle = addonRoot.querySelector('[data-addon-toggle]');

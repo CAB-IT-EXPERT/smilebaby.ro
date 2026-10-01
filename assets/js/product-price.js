@@ -25,6 +25,11 @@
         current += fee;
         regular += fee;
       }
+      root.querySelectorAll('[data-customization-option]:checked').forEach(option => {
+        const fee = Number(option.dataset.price) || 0;
+        current += fee;
+        regular += fee;
+      });
 
       root.querySelectorAll('[data-storefront-addon-option]').forEach(option => {
         if (!option.querySelector('[data-storefront-addon-check]')?.checked) return;

@@ -9,11 +9,11 @@ use RuntimeException;
 
 final class CartService
 {
-    public function add(int $productId, int $quantity = 1, ?int $variantId = null, bool $personalized = false, array $values = [], array $addonValues = []): void
+    public function add(int $productId, int $quantity = 1, ?int $variantId = null, bool $personalized = false, array $values = [], array $addonValues = [], array $optionIds = []): void
     {
         $product = (new ProductRepository())->find($productId);
         if (!$product || ($product['status'] ?? '') !== 'active') throw new RuntimeException('Produsul nu mai este disponibil.');
-        $customization = $personalized ? $this->makeCustomization($product, $values) : null;
+        $customization = $personalized ? $this->makeCustomization($product, $values, $optionIds) : null;
         $addonService = new ProductAddonService();
         $addons = $addonService->validateSelections($productId, $addonValues);
         $cart = Session::get('cart', []);
@@ -51,14 +51,14 @@ final class CartService
         Session::put('cart', $cart);
     }
 
-    public function updateCustomization(string $key, bool $enabled, array $values = []): void
+    public function updateCustomization(string $key, bool $enabled, array $values = [], array $optionIds = []): void
     {
         $cart = Session::get('cart', []);
         if (!isset($cart[$key])) throw new RuntimeException('Produsul nu mai este în coș.');
         $line = $cart[$key];
         $product = (new ProductRepository())->find((int) $line['product_id']);
         if (!$product) throw new RuntimeException('Produsul nu mai este disponibil.');
-        $customization = $enabled ? $this->makeCustomization($product, $values) : null;
+        $customization = $enabled ? $this->makeCustomization($product, $values, $optionIds) : null;
         unset($cart[$key]);
         $newKey = $this->key((int) $line['product_id'], !empty($line['variant_id']) ? (int) $line['variant_id'] : null, $customization, (array) ($line['addons'] ?? []));
         if (isset($cart[$newKey])) $cart[$newKey]['quantity'] = min(99, (int) $cart[$newKey]['quantity'] + (int) $line['quantity']);
@@ -95,7 +95,7 @@ final class CartService
                 // Never silently turn a requested personalized line into a plain
                 // product. The client keeps its original cart and can surface the
                 // validation message instead of losing the personalization.
-                $customization = $this->makeCustomization($product, $this->rawValues((array) ($line['customization']['values'] ?? [])));
+                $customization = $this->makeCustomization($product, $this->rawValues((array) ($line['customization']['values'] ?? [])), (array) ($line['customization']['options'] ?? []));
             }
             $addons = $addonService->validateSelections($productId, $addonService->rawSelections((array) ($line['addons'] ?? [])), null, false, $quantity);
             $key = $this->key($productId, $variantId, $customization, $addons);
@@ -133,17 +133,21 @@ final class CartService
                 $basePrice = (float) ($variant['sale_price'] ?: $variant['regular_price'] ?: $basePrice);
             }
             $fields = !empty($product['is_customizable']) ? $customizationService->fields((int) $product['id']) : [];
+            $options = !empty($product['is_customizable']) ? $customizationService->options((int) $product['id']) : [];
             $customization = null;
             if (!empty($line['customization']['enabled']) && $fields) {
                 try {
                     $values = $customizationService->validateValues((int) $product['id'], $this->rawValues((array) ($line['customization']['values'] ?? [])));
-                    $customization = ['enabled' => true, 'values' => $values];
+                    $selected = $customizationService->validateOptions((int) $product['id'], (array) ($line['customization']['options'] ?? []));
+                    $customization = ['enabled' => true, 'values' => $values, 'options' => $selected];
                 } catch (RuntimeException) {
                     $cart[$key]['customization'] = null;
                     $changed = true;
                 }
             }
-            $customizationPrice = $customization ? max(0, (float) ($product['customization_price'] ?? 0)) : 0.0;
+            $customizationPrice = $customization
+                ? round(($options ? 0 : max(0, (float) ($product['customization_price'] ?? 0))) + array_sum(array_column($customization['options'], 'price')), 2)
+                : 0.0;
             $price = round($basePrice + $customizationPrice, 2);
             $addons = [];
             $lineQuantity = max(1, (int) ($line['quantity'] ?? 1));
@@ -163,7 +167,7 @@ final class CartService
             }
             unset($addon);
             $addonsTotal = round($addonsUnitTotal * $lineQuantity, 2);
-            $items[] = compact('key', 'product', 'variant', 'basePrice', 'customizationPrice', 'price', 'customization', 'fields', 'addons', 'addonsUnitTotal', 'addonsTotal') + ['quantity' => $lineQuantity, 'variant_id' => $line['variant_id'], 'total' => round(($price + $addonsUnitTotal) * $lineQuantity, 2)];
+            $items[] = compact('key', 'product', 'variant', 'basePrice', 'customizationPrice', 'price', 'customization', 'fields', 'options', 'addons', 'addonsUnitTotal', 'addonsTotal') + ['quantity' => $lineQuantity, 'variant_id' => $line['variant_id'], 'total' => round(($price + $addonsUnitTotal) * $lineQuantity, 2)];
         }
         if ($changed) Session::put('cart', $cart);
         return $items;
@@ -171,10 +175,15 @@ final class CartService
 
     public function subtotal(): float { return array_sum(array_column($this->items(), 'total')); }
 
-    private function makeCustomization(array $product, array $values): array
+    private function makeCustomization(array $product, array $values, array $optionIds = []): array
     {
         if (empty($product['is_customizable'])) throw new RuntimeException('Acest produs nu permite personalizare.');
-        return ['enabled' => true, 'values' => (new ProductCustomizationService())->validateValues((int) $product['id'], $values)];
+        $service = new ProductCustomizationService();
+        return [
+            'enabled' => true,
+            'values' => $service->validateValues((int) $product['id'], $values),
+            'options' => $service->validateOptions((int) $product['id'], $optionIds),
+        ];
     }
 
     private function rawValues(array $values): array
@@ -190,7 +199,11 @@ final class CartService
     private function key(int $productId, ?int $variantId, ?array $customization, array $addons = []): string
     {
         $key = $productId . ':' . ($variantId ?: 0);
-        if ($customization) $key .= ':p:' . substr(hash('sha256', json_encode($customization['values'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)), 0, 16);
+        if ($customization) {
+            $optionIds = array_values(array_map(static fn (array $option): int => (int) $option['option_id'], (array) ($customization['options'] ?? [])));
+            sort($optionIds);
+            $key .= ':p:' . substr(hash('sha256', json_encode([$customization['values'], $optionIds], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)), 0, 16);
+        }
         if ($addons) {
             $identity = array_map(static fn (array $addon): array => ['product_id' => (int) $addon['product_id'], 'quantity' => (int) $addon['quantity']], $addons);
             usort($identity, static fn (array $a, array $b): int => $a['product_id'] <=> $b['product_id']);

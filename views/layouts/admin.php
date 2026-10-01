@@ -57,6 +57,7 @@ $active = static function (string $prefix, bool $exact = false) use ($path): str
     <link rel="stylesheet" href="<?= asset('css/admin-dashboard.css') ?>">
     <link rel="stylesheet" href="<?= asset('css/admin-product-editor.css') ?>">
     <link rel="stylesheet" href="<?= asset('css/admin-customization.css') ?>">
+    <link rel="stylesheet" href="<?= asset('css/customization-options.css') ?>">
     <link rel="stylesheet" href="<?= asset('css/admin-ui-fixes.css') ?>">
     <link rel="stylesheet" href="<?= asset('css/stripe-settings.css') ?>">
 </head>

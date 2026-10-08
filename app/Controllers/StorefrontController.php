@@ -12,6 +12,7 @@ use App\Core\View;
 use App\Models\CategoryRepository;
 use App\Models\ProductRepository;
 use App\Services\CartService;
+use App\Services\MetaPixelService;
 use App\Services\OrderService;
 use App\Services\OrderTrackingService;
 use App\Services\PaymentService;
@@ -49,6 +50,7 @@ final class StorefrontController
             'description' => 'Descoperă trusouri, lumânări, mărturii și cadouri personalizate pentru botez, realizate cu grijă în România de atelierul SmileBaby.',
             'canonical' => $shopUrl,
             'robots' => $hasFilters ? 'noindex,follow' : 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1',
+            'pixel' => $filters['q'] !== '' ? ['name' => 'Search', 'data' => ['search_string' => mb_substr($filters['q'], 0, 100)]] : null,
             'schemas' => [
                 $seo->itemListSchema($result['items'], 'Magazin SmileBaby', $shopUrl),
                 $seo->breadcrumbSchema([['name' => 'Acasă', 'url' => '/'], ['name' => 'Magazin', 'url' => '/magazin']]),
@@ -73,6 +75,7 @@ final class StorefrontController
             'canonical' => $categoryUrl,
             'robots' => !empty($category['indexable']) && !$hasFilters ? 'index,follow,max-image-preview:large,max-snippet:-1' : 'noindex,follow',
             'image' => optimized_image_url($category['image_path'] ?? null, 'display'),
+            'pixel' => $filters['q'] !== '' ? ['name' => 'Search', 'data' => ['search_string' => mb_substr($filters['q'], 0, 100)]] : null,
             'schemas' => [
                 $seo->itemListSchema($result['items'], (string) $category['name'], $categoryUrl),
                 $seo->breadcrumbSchema([['name' => 'Acasă', 'url' => '/'], ['name' => 'Magazin', 'url' => '/magazin'], ['name' => (string) $category['name'], 'url' => '/categorie/' . $category['slug']]]),
@@ -106,6 +109,7 @@ final class StorefrontController
             'image' => optimized_image_url($product['image_path'] ?? null, 'display'),
             'type' => 'product',
             'price' => $product['price'],
+            'pixel' => ['name' => 'ViewContent', 'data' => MetaPixelService::product($product)],
             'schemas' => [
                 $seo->productSchema($product, $schemaImages),
                 $seo->breadcrumbSchema(array_values(array_filter([
@@ -171,7 +175,7 @@ final class StorefrontController
         $cart = new CartService();
         try {
             $cart->replace(is_array($request->input('items')) ? $request->input('items') : []);
-            Response::json(['ok' => true, 'items' => $cart->snapshot(), 'count' => $cart->count()]);
+            Response::json(['ok' => true, 'items' => $cart->snapshot(), 'count' => $cart->count(), 'pixel_lines' => MetaPixelService::cartLines($cart->items())]);
         } catch (\RuntimeException $error) {
             Response::json(['ok' => false, 'message' => $error->getMessage()], 422);
         }
@@ -191,7 +195,7 @@ final class StorefrontController
         $shippingEnabled = filter_var(setting('shipping_enabled', '1'), FILTER_VALIDATE_BOOL);
         $threshold = (float) setting('free_shipping_threshold', 300);
         $shipping = !$shippingEnabled || ($threshold > 0 && $subtotal >= $threshold) ? 0 : (float) setting('standard_shipping_cost', 20);
-        View::render('storefront/checkout', ['items' => $items, 'addresses' => $addresses, 'subtotal' => $subtotal, 'shipping' => $shipping, 'paymentMethods' => (new PaymentService())->active($subtotal), 'meta' => ['title' => 'Finalizare comandă — SmileBaby', 'robots' => 'noindex,nofollow']]);
+        View::render('storefront/checkout', ['items' => $items, 'addresses' => $addresses, 'subtotal' => $subtotal, 'shipping' => $shipping, 'paymentMethods' => (new PaymentService())->active($subtotal), 'meta' => ['title' => 'Finalizare comandă — SmileBaby', 'robots' => 'noindex,nofollow', 'pixel' => ['name' => 'InitiateCheckout', 'data' => MetaPixelService::cart($items, $subtotal + $shipping)]]]);
     }
 
     public function placeOrder(Request $request): void
@@ -224,7 +228,9 @@ final class StorefrontController
         if (!$order || (!$last && !Auth::isAdmin()) || ($last && $last['email'] !== $order['email'] && !Auth::isAdmin())) { http_response_code(404); View::render('errors/404'); return; }
         $itemsStmt = Database::connection()->prepare('SELECT * FROM order_items WHERE order_id=? ORDER BY id');
         $itemsStmt->execute([(int) $order['id']]);
-        View::render('storefront/confirmation', ['order' => $order, 'items' => $itemsStmt->fetchAll(), 'displayState' => 'received', 'meta' => ['title' => 'Am primit comanda ta — SmileBaby', 'robots' => 'noindex,nofollow']]);
+        $items = $itemsStmt->fetchAll();
+        $purchase = ($last['number'] ?? '') === $number ? MetaPixelService::purchaseEvent($order, $items, 'received') : null;
+        View::render('storefront/confirmation', ['order' => $order, 'items' => $items, 'displayState' => 'received', 'meta' => ['title' => 'Am primit comanda ta — SmileBaby', 'robots' => 'noindex,nofollow', 'pixel' => $purchase]]);
     }
 
     public function paymentResult(Request $request): void
@@ -240,6 +246,8 @@ final class StorefrontController
         if ($sessionId !== '') {
             try {
                 (new StripeCheckoutService())->verifyReturn($sessionId, $number);
+                // Do not expose a Stripe Checkout session identifier to browser pixels.
+                Response::redirect('/plata/rezultat?order=' . rawurlencode($number));
             } catch (\Throwable $error) {
                 $paymentError = $error->getMessage();
             }
@@ -251,7 +259,9 @@ final class StorefrontController
             : (!empty($request->query['cancelled']) ? 'cancelled' : (($order['payment_status'] ?? '') === 'paid' ? 'paid' : (($order['payment_status'] ?? '') === 'failed' || $paymentError ? 'failed' : 'pending')));
         $itemsStmt = Database::connection()->prepare('SELECT * FROM order_items WHERE order_id=? ORDER BY id');
         $itemsStmt->execute([(int) $order['id']]);
-        View::render('storefront/payment-result', ['order' => $order, 'items' => $itemsStmt->fetchAll(), 'displayState' => $displayState, 'paymentError' => $paymentError, 'meta' => ['title' => 'Status plată — SmileBaby', 'robots' => 'noindex,nofollow']]);
+        $items = $itemsStmt->fetchAll();
+        $purchase = ($last['number'] ?? '') === $number ? MetaPixelService::purchaseEvent($order, $items, $displayState) : null;
+        View::render('storefront/payment-result', ['order' => $order, 'items' => $items, 'displayState' => $displayState, 'paymentError' => $paymentError, 'meta' => ['title' => 'Status plată — SmileBaby', 'robots' => 'noindex,nofollow', 'pixel' => $purchase]]);
     }
 
     public function retryPayment(Request $request): void
@@ -324,7 +334,9 @@ final class StorefrontController
         $email = mb_strtolower(trim((string) $request->input('email')));
         if (!Validator::email($email) || !$request->input('consent')) { Session::flash('error', 'Introdu o adresă validă și confirmă acordul.'); Response::redirect('/#newsletter'); }
         Database::connection()->prepare('INSERT INTO newsletter_subscribers (email,consent,status,token) VALUES (?,1,"active",?) ON DUPLICATE KEY UPDATE consent=1,status="active",unsubscribed_at=NULL')->execute([$email, hash('sha256', $email . random_bytes(16))]);
-        Session::flash('success', 'Bine ai venit în povestea SmileBaby!'); Response::redirect('/#newsletter');
+        Session::flash('success', 'Bine ai venit în povestea SmileBaby!');
+        Session::flash('pixel_event', ['name' => 'Lead', 'data' => ['content_name' => 'Newsletter']]);
+        Response::redirect('/#newsletter');
     }
 
     public function unsubscribe(Request $request): void { if (Database::available()) Database::connection()->prepare('UPDATE newsletter_subscribers SET status="unsubscribed",unsubscribed_at=NOW() WHERE token=?')->execute([$request->params['token']]); View::render('storefront/message', ['title' => 'Abonare oprită', 'message' => 'Nu vei mai primi noutățile noastre.']); }
@@ -480,6 +492,7 @@ final class StorefrontController
             'robots' => !empty($post['indexable']) ? 'index,follow,max-image-preview:large,max-snippet:-1' : 'noindex,follow',
             'image' => $postImage,
             'type' => 'article',
+            'pixel' => ['name' => 'ViewContent', 'data' => ['content_name' => (string) $post['title'], 'content_category' => 'article', 'content_ids' => ['article-' . (int) $post['id']]]],
             'schemas' => [[
                 '@context' => 'https://schema.org',
                 '@type' => 'Article',
@@ -520,7 +533,7 @@ final class StorefrontController
         View::render('storefront/page', ['page' => $page, 'meta' => $meta]);
     }
     public function contact(Request $request): void { View::render('storefront/contact', ['meta' => ['title' => 'Contact SmileBaby | Comenzi și produse personalizate', 'description' => 'Contactează atelierul SmileBaby pentru informații despre trusouri, lumânări, mărturii, personalizare, comenzi și livrare.', 'schemas' => [(new SeoService())->breadcrumbSchema([['name' => 'Acasă', 'url' => '/'], ['name' => 'Contact', 'url' => '/contact']])]]]); }
-    public function contactSend(Request $request): void { $errors = Validator::required($request->body, ['name' => 'Numele', 'email' => 'Emailul', 'message' => 'Mesajul']); if ($errors) { Session::flash('errors', $errors); Response::redirect('/contact'); } Database::connection()->prepare('INSERT INTO contact_messages (name,email,phone,subject,message) VALUES (?,?,?,?,?)')->execute([trim($request->input('name')), mb_strtolower(trim($request->input('email'))), trim($request->input('phone')), trim($request->input('subject')), trim($request->input('message'))]); Session::flash('success', 'Mesajul tău a fost trimis. Îți răspundem cât mai curând.'); Response::redirect('/contact'); }
+    public function contactSend(Request $request): void { $errors = Validator::required($request->body, ['name' => 'Numele', 'email' => 'Emailul', 'message' => 'Mesajul']); if ($errors) { Session::flash('errors', $errors); Response::redirect('/contact'); } Database::connection()->prepare('INSERT INTO contact_messages (name,email,phone,subject,message) VALUES (?,?,?,?,?)')->execute([trim($request->input('name')), mb_strtolower(trim($request->input('email'))), trim($request->input('phone')), trim($request->input('subject')), trim($request->input('message'))]); Session::flash('success', 'Mesajul tău a fost trimis. Îți răspundem cât mai curând.'); Session::flash('pixel_event', ['name' => 'Lead', 'data' => ['content_name' => 'Contact']]); Response::redirect('/contact'); }
 
     public function search(Request $request): void
     {

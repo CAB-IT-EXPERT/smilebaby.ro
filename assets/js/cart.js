@@ -157,12 +157,28 @@ function initCart() {
     const addonsSignature = addonSignature(addons);
     const previousItems = JSON.stringify(items);
     const existing = items.find(item => item.product_id === productId && (item.variant_id || null) === variantId && customizationSignature(item.customization) === signature && addonSignature(item.addons) === addonsSignature);
+    const previousQuantity = existing?.quantity || 0;
     if (existing) existing.quantity = Math.min(99, existing.quantity + quantity);
     else items.push({ product_id: productId, variant_id: variantId, quantity, customization, addons, cart_key: null });
     saveLocal();
     if (button) { button.disabled = true; button.textContent = 'SE ADAUGĂ…'; }
     try {
-      await syncCart();
+      const result = await syncCart();
+      const syncedLine = items.find(item => item.product_id === productId && (item.variant_id || null) === variantId && customizationSignature(item.customization) === signature && addonSignature(item.addons) === addonsSignature);
+      const pricedLine = (result.pixel_lines || []).find(line => line.key === syncedLine?.cart_key);
+      const addedQuantity = Math.max(0, (syncedLine?.quantity || 0) - previousQuantity);
+      if (pricedLine && addedQuantity > 0) {
+        const contents = [{ id: String(productId), quantity: addedQuantity, item_price: Number(pricedLine.unit_price) }];
+        (pricedLine.addons || []).forEach(addon => contents.push({ id: String(addon.product_id), quantity: addedQuantity * Number(addon.quantity_per_set || 0), item_price: Number(addon.unit_price) }));
+        window.SmileBabyPixel?.track('AddToCart', {
+          content_ids: [...new Set(contents.map(item => item.id))],
+          content_type: 'product',
+          contents,
+          num_items: contents.reduce((sum, item) => sum + item.quantity, 0),
+          value: Math.round(Number(pricedLine.unit_total) * addedQuantity * 100) / 100,
+          currency: 'RON'
+        });
+      }
       if (button) button.textContent = 'ADĂUGAT ✓';
       setTimeout(() => {
         if (button) { button.textContent = label; button.disabled = false; }

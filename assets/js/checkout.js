@@ -62,4 +62,17 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   form.querySelectorAll('[name="payment_method"]').forEach(input => input.addEventListener('change', updatePaymentFee));
   updatePaymentFee();
+  form.addEventListener('submit', () => {
+    if (!form.reportValidity()) return;
+    const selectedMethod = form.querySelector('[name="payment_method"]:checked');
+    if (selectedMethod) {
+      const feeValue = Number(selectedMethod.dataset.feeValue || 0);
+      const fee = selectedMethod.dataset.feeType === 'fixed' ? feeValue : selectedMethod.dataset.feeType === 'percentage' ? subtotal * feeValue / 100 : 0;
+      window.SmileBabyPixel?.track('AddPaymentInfo', {
+        currency: 'RON',
+        value: Math.round((base + fee) * 100) / 100,
+        payment_method: selectedMethod.value
+      });
+    }
+  });
 });

@@ -39,7 +39,9 @@ final class AccountController
             $stmt = Database::connection()->prepare('INSERT INTO users (email,password_hash,first_name,last_name,phone) VALUES (?,?,?,?,?)');
             $stmt->execute([mb_strtolower(trim((string) $request->input('email'))), password_hash((string) $request->input('password'), PASSWORD_DEFAULT), trim((string) $request->input('first_name')), trim((string) $request->input('last_name')), trim((string) $request->input('phone')) ?: null]);
             Auth::attempt((string) $request->input('email'), (string) $request->input('password')); $this->syncWishlist();
-            Session::flash('success', 'Bine ai venit la SmileBaby!'); Response::redirect('/cont');
+            Session::flash('success', 'Bine ai venit la SmileBaby!');
+            Session::flash('pixel_event', ['name' => 'CompleteRegistration', 'data' => ['status' => 'completed']]);
+            Response::redirect('/cont');
         } catch (\PDOException) { Session::flash('error', 'Există deja un cont cu această adresă de email.'); Response::redirect('/inregistrare'); }
     }
 

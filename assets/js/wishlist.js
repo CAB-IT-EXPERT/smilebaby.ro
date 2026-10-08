@@ -71,13 +71,15 @@ document.addEventListener('DOMContentLoaded', () => {
     await ready;
     const productId = productIdFor(form);
     if (!productId) return;
-    if (items.includes(productId)) items = items.filter(id => id !== productId);
+    const wasSaved = items.includes(productId);
+    if (wasSaved) items = items.filter(id => id !== productId);
     else items.push(productId);
     saveLocal();
     const button = form.querySelector('button');
     if (button) button.disabled = true;
     try {
       await syncWishlist();
+      if (!wasSaved && items.includes(productId)) window.SmileBabyPixel?.track('AddToWishlist', { content_ids: [String(productId)], content_type: 'product' });
     } finally {
       if (button) button.disabled = false;
       if (location.pathname === '/favorite') location.reload();

@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
   const cookie=document.querySelector('[data-cookie-banner]');
   if(cookie&&!localStorage.getItem('sb_cookie_consent'))cookie.hidden=false;
-  document.querySelector('[data-cookie-essential]')?.addEventListener('click',()=>{localStorage.setItem('sb_cookie_consent','necessary');cookie.hidden=true});
+  document.querySelector('[data-cookie-essential]')?.addEventListener('click',()=>{localStorage.setItem('sb_cookie_consent','necessary');cookie.hidden=true;dispatchEvent(new CustomEvent('smilebaby:consent'))});
   document.querySelector('[data-cookie-accept]')?.addEventListener('click',()=>{localStorage.setItem('sb_cookie_consent','all');cookie.hidden=true;dispatchEvent(new CustomEvent('smilebaby:consent'))});
   document.querySelectorAll('[data-cookie-settings]').forEach(button=>button.addEventListener('click',()=>{if(!cookie)return;cookie.hidden=false;cookie.classList.remove('cookie-reopen');requestAnimationFrame(()=>cookie.classList.add('cookie-reopen'));cookie.querySelector('button')?.focus()}));
 });

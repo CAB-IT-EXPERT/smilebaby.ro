@@ -58,6 +58,10 @@ $websiteSchema = [
     'potentialAction' => ['@type' => 'SearchAction', 'target' => $appUrl . '/magazin?q={search_term_string}', 'query-input' => 'required name=search_term_string'],
 ];
 $structuredData = array_merge([$organizationSchema, $websiteSchema], (array) ($meta['schemas'] ?? []));
+$pixelEvents = array_values(array_filter([$meta['pixel'] ?? null, Session::pullFlash('pixel_event')]));
+$pixelEnabled = !str_starts_with($currentPath, '/admin')
+    && !str_starts_with($currentPath, '/urmareste-comanda/acces/')
+    && !($currentPath === '/plata/rezultat' && !empty($_GET['session_id']));
 ?>
 <!doctype html>
 <html lang="ro">
@@ -175,6 +179,8 @@ $structuredData = array_merge([$organizationSchema, $websiteSchema], (array) ($m
 </div>
 <a class="whatsapp-float" href="https://wa.me/<?= e($whatsappNumber) ?>?text=<?= e(rawurlencode('Bună! Aș dori mai multe informații despre produsele SmileBaby.')) ?>" target="_blank" rel="noopener noreferrer" aria-label="Scrie-ne pe WhatsApp"><span>Scrie-ne pe WhatsApp</span><?= icon('whatsapp') ?></a>
 <script>window.SmileBaby={csrf:<?= json_encode(App\Core\Csrf::token()) ?>,userId:<?= json_encode(user()['id'] ?? null) ?>,cart:<?= json_encode((new CartService())->snapshot(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,wishlist:<?= json_encode(array_values(array_map('intval', Session::get('wishlist', [])))) ?>};</script>
+<?php if ($pixelEnabled): ?><script>window.SmileBabyPixelConfig=<?= json_encode(['id' => App\Services\MetaPixelService::PIXEL_ID, 'events' => $pixelEvents], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<script src="<?= asset('js/meta-pixel.js') ?>" defer></script><?php endif ?>
 <script src="<?= asset('js/app.js') ?>" defer></script>
 <script src="<?= asset('js/search.js') ?>" defer></script>
 <script src="<?= asset('js/cart.js') ?>" defer></script>
